@@ -256,7 +256,6 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] p-4 pb-20">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-center">Settings</h1>
 
         {/* User Info */}
         <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">

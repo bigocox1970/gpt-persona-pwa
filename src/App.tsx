@@ -34,47 +34,33 @@ function AppRoutes() {
   const [showNotes, setShowNotes] = useState(false);
   const [showTodos, setShowTodos] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-
-  useEffect(() => {
-    const path = location.pathname;
-    if (path === '/tools/notes') {
-      setShowNotes(true);
-      setShowTools(false);
-      setShowTodos(false);
-      setShowHistory(false);
-    } else if (path === '/tools/todos') {
-      setShowTodos(true);
-      setShowTools(false);
-      setShowNotes(false);
-      setShowHistory(false);
-    } else if (path === '/tools/history') {
-      setShowHistory(true);
-      setShowTools(false);
-      setShowNotes(false);
-      setShowTodos(false);
-    } else if (path === '/tools') {
-      setShowTools(true);
-      setShowNotes(false);
-      setShowTodos(false);
-      setShowHistory(false);
-    }
-  }, [location]);
+  // Store the previous location before opening tools
+  const [previousLocation, setPreviousLocation] = useState<string | null>(null);
 
   const handleToolsClick = () => {
+    // Store current location before showing tools
+    setPreviousLocation(location.pathname);
+    // Show tools overlay
     setShowTools(true);
     setShowNotes(false);
     setShowTodos(false);
     setShowHistory(false);
-    navigate('/tools');
   };
 
   const handleClose = () => {
+    // Close all tool overlays
     setShowTools(false);
     setShowNotes(false);
     setShowTodos(false);
     setShowHistory(false);
-    navigate(-1);
+    
+    // If we have a previous location stored, navigate back to it
+    if (previousLocation) {
+      navigate(previousLocation);
+    }
   };
+  
+
 
   return (
     <>
@@ -113,7 +99,21 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {showTools && <ToolsPage onClose={handleClose} />}
+      {showTools && <ToolsPage 
+        onClose={handleClose} 
+        onSelectNotes={() => {
+          setShowTools(false);
+          setShowNotes(true);
+        }} 
+        onSelectTodos={() => {
+          setShowTools(false);
+          setShowTodos(true);
+        }}
+        onSelectHistory={() => {
+          setShowTools(false);
+          setShowHistory(true);
+        }}
+      />}
       {showNotes && <NotesPage onClose={handleClose} />}
       {showTodos && <TodosPage onClose={handleClose} />}
       {showHistory && <ChatHistory onClose={handleClose} />}
@@ -128,7 +128,7 @@ function App() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/serviceWorker.js')
-          .then(registration => {
+          .then(() => {
             console.log('ServiceWorker registration successful');
           })
           .catch(err => {

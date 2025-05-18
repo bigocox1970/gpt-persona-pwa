@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { StickyNote, CheckSquare, History, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -8,38 +7,47 @@ interface Tool {
   name: string;
   description: string;
   icon: React.ReactNode;
-  path: string;
+  action: () => void;
 }
 
-const tools: Tool[] = [
-  {
-    id: 'notes',
-    name: 'Notes',
-    description: 'Create and manage notes from your conversations',
-    icon: <StickyNote className="w-6 h-6" />,
-    path: '/tools/notes'
-  },
-  {
-    id: 'todos',
-    name: 'Todo List',
-    description: 'Keep track of tasks and ideas from your chats',
-    icon: <CheckSquare className="w-6 h-6" />,
-    path: '/tools/todos'
-  },
-  {
-    id: 'history',
-    name: 'Chat History',
-    description: 'View and search through your past conversations',
-    icon: <History className="w-6 h-6" />,
-    path: '/tools/history'
-  }
-];
+interface ToolsPageProps {
+  onClose: () => void;
+  onSelectNotes: () => void;
+  onSelectTodos: () => void;
+  onSelectHistory: () => void;
+}
 
-const ToolsPage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const navigate = useNavigate();
+const ToolsPage: React.FC<ToolsPageProps> = ({ onClose, onSelectNotes, onSelectTodos, onSelectHistory }) => {
+  
+  // Define tools with actions that use the provided callbacks
+  const tools: Tool[] = [
+    {
+      id: 'notes',
+      name: 'Notes',
+      description: 'Create and manage notes from your conversations',
+      icon: <StickyNote className="w-6 h-6" />,
+      action: onSelectNotes
+    },
+    {
+      id: 'todos',
+      name: 'Todo List',
+      description: 'Keep track of tasks and ideas from your chats',
+      icon: <CheckSquare className="w-6 h-6" />,
+      action: onSelectTodos
+    },
+    {
+      id: 'history',
+      name: 'Chat History',
+      description: 'View and search through your past conversations',
+      icon: <History className="w-6 h-6" />,
+      action: onSelectHistory
+    }
+  ];
 
-  const handleToolClick = (path: string) => {
-    navigate(path);
+  // Handle tool click by executing the tool's action
+  const handleToolClick = (action: () => void) => {
+    onClose(); // Close the tools overlay
+    action(); // Execute the tool's action
   };
 
   return (
@@ -67,7 +75,7 @@ const ToolsPage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl p-4 cursor-pointer shadow-sm"
-              onClick={() => handleToolClick(tool.path)}
+              onClick={() => handleToolClick(tool.action)}
             >
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-[var(--primary-color)] bg-opacity-10 rounded-lg text-[var(--primary-color)]">
