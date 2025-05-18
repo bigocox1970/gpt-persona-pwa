@@ -16,7 +16,7 @@ interface Message {
 }
 
 const ChatInterface: React.FC = () => {
-  const { selectedPersona } = usePersona();
+  const { selectedPersona, selectedChatSessionId, clearChatSession } = usePersona();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -76,31 +76,57 @@ const ChatInterface: React.FC = () => {
       }
 
       try {
-        // Check for existing session from today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const { data: existingSessions, error: sessionError } = await supabase
-          .from('chat_sessions')
-          .select('id, created_at')
-          .eq('user_id', user.id)
-          .eq('persona_id', selectedPersona.id)
-          .gte('created_at', today.toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1);
-
         let sessionId = null;
+        
+        // Check if we have a specific chat session to load from history
+        if (selectedChatSessionId) {
+          console.log('Loading specific chat session:', selectedChatSessionId);
+          
+          // Verify the session exists and belongs to this user and persona
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('chat_sessions')
+            .select('id')
+            .eq('id', selectedChatSessionId)
+            .eq('user_id', user.id)
+            .eq('persona_id', selectedPersona.id)
+            .single();
+            
+          if (sessionError || !sessionData) {
+            console.error('Error loading specific session:', sessionError);
+            // Clear the invalid session ID
+            clearChatSession();
+          } else {
+            // Use the specified session
+            sessionId = selectedChatSessionId;
+          }
+        }
+        
+        // If no specific session was loaded, find or create one
+        if (!sessionId) {
+          // Check for existing session from today
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
 
-        if (sessionError) {
-          console.error('Error checking for existing session:', sessionError);
-          // Try to create a new session
-          sessionId = await createNewSession();
-        } else if (existingSessions && existingSessions.length > 0) {
-          console.log('Found existing session:', existingSessions[0].id);
-          sessionId = existingSessions[0].id;
-        } else {
-          // No existing session found, create a new one
-          sessionId = await createNewSession();
+          const { data: existingSessions, error: sessionError } = await supabase
+            .from('chat_sessions')
+            .select('id, created_at')
+            .eq('user_id', user.id)
+            .eq('persona_id', selectedPersona.id)
+            .gte('created_at', today.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (sessionError) {
+            console.error('Error checking for existing session:', sessionError);
+            // Try to create a new session
+            sessionId = await createNewSession();
+          } else if (existingSessions && existingSessions.length > 0) {
+            console.log('Found existing session:', existingSessions[0].id);
+            sessionId = existingSessions[0].id;
+          } else {
+            // No existing session found, create a new one
+            sessionId = await createNewSession();
+          }
         }
 
         if (!sessionId) {
@@ -346,7 +372,7 @@ const ChatInterface: React.FC = () => {
   return (
     <div className={`flex flex-col h-full ${selectedPersona.className} bg-[var(--background-primary)] dark:bg-[var(--background-primary)]`}>
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
+      <div className="flex-1 overflow-y-auto px-4 py-2 bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <img 

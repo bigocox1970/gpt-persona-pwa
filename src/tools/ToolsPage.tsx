@@ -48,13 +48,13 @@ const ToolsPage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl"
+        className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl shadow-xl w-full max-w-2xl"
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-t-xl">
           <h2 className="text-xl font-semibold">Tools</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            className="p-2 hover:bg-[var(--background-primary)] hover:bg-opacity-80 dark:hover:bg-[var(--background-primary)] dark:hover:bg-opacity-80 rounded-full"
           >
             <X size={20} />
           </button>
@@ -66,7 +66,7 @@ const ToolsPage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               key={tool.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 cursor-pointer"
+              className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl p-4 cursor-pointer shadow-sm"
               onClick={() => handleToolClick(tool.path)}
             >
               <div className="flex items-center gap-3 mb-2">
@@ -75,7 +75,7 @@ const ToolsPage: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 </div>
                 <h3 className="text-lg font-medium">{tool.name}</h3>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-[var(--text-primary)] dark:text-[var(--text-primary)] text-opacity-70 dark:text-opacity-70 text-sm">
                 {tool.description}
               </p>
             </motion.div>

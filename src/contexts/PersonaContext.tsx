@@ -15,7 +15,10 @@ export interface Persona {
 interface PersonaContextType {
   personas: Persona[];
   selectedPersona: Persona | null;
+  selectedChatSessionId: string | null;
   selectPersona: (persona: Persona) => void;
+  selectChatSession: (sessionId: string, personaId: string) => void;
+  clearChatSession: () => void;
 }
 
 const PERSONAS: Persona[] = [
@@ -79,7 +82,10 @@ const PERSONAS: Persona[] = [
 const PersonaContext = createContext<PersonaContextType>({
   personas: PERSONAS,
   selectedPersona: null,
+  selectedChatSessionId: null,
   selectPersona: () => {},
+  selectChatSession: () => {},
+  clearChatSession: () => {},
 });
 
 export const usePersona = () => useContext(PersonaContext);
@@ -87,23 +93,64 @@ export const usePersona = () => useContext(PersonaContext);
 export const PersonaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [personas] = useState<Persona[]>(PERSONAS);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [selectedChatSessionId, setSelectedChatSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedPersonaId = localStorage.getItem('selectedPersonaId');
+    const storedSessionId = localStorage.getItem('selectedChatSessionId');
+    
     if (storedPersonaId) {
       const persona = personas.find(p => p.id === storedPersonaId) || null;
       setSelectedPersona(persona);
+    }
+    
+    if (storedSessionId) {
+      setSelectedChatSessionId(storedSessionId);
     }
   }, [personas]);
 
   const selectPersona = (persona: Persona) => {
     setSelectedPersona(persona);
     localStorage.setItem('selectedPersonaId', persona.id);
+    // Clear any selected chat session when directly selecting a persona
+    clearChatSession();
     document.body.className = persona.className;
+  };
+  
+  const selectChatSession = (sessionId: string, personaId: string) => {
+    console.log('PersonaContext: Setting selected chat session ID:', sessionId);
+    setSelectedChatSessionId(sessionId);
+    localStorage.setItem('selectedChatSessionId', sessionId);
+    
+    // Also set the associated persona if we can find it in our local personas array
+    // Note: If the persona isn't found, the Chat component will load it from the database
+    const persona = personas.find(p => p.id === personaId) || null;
+    if (persona) {
+      console.log('PersonaContext: Found matching persona in local data:', persona.name);
+      setSelectedPersona(persona);
+      localStorage.setItem('selectedPersonaId', persona.id);
+      document.body.className = persona.className;
+    } else {
+      console.log('PersonaContext: No matching persona found locally, Chat component will load it');
+      // We'll still store the persona ID for the Chat component to load
+      localStorage.setItem('selectedPersonaId', personaId);
+    }
+  };
+  
+  const clearChatSession = () => {
+    setSelectedChatSessionId(null);
+    localStorage.removeItem('selectedChatSessionId');
   };
 
   return (
-    <PersonaContext.Provider value={{ personas, selectedPersona, selectPersona }}>
+    <PersonaContext.Provider value={{
+      personas,
+      selectedPersona,
+      selectedChatSessionId,
+      selectPersona,
+      selectChatSession,
+      clearChatSession
+    }}>
       {children}
     </PersonaContext.Provider>
   );

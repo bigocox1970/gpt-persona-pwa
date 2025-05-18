@@ -254,9 +254,9 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] p-4">
+    <div className="min-h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] p-4 pb-20">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Settings</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Settings</h1>
 
         {/* User Info */}
         <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
@@ -359,7 +359,7 @@ const Settings: React.FC = () => {
             <h2 className="text-lg font-semibold">Voice Output</h2>
           </div>
           
-          <div className="space-y-4 pl-9">
+          <div className="space-y-6 pl-9">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Voice
@@ -398,7 +398,7 @@ const Settings: React.FC = () => {
                 step="0.1"
                 value={speechRate}
                 onChange={handleSpeechRateChange}
-                className="w-full"
+                className="w-full accent-[var(--primary-color)] h-2 rounded-lg appearance-none cursor-pointer"
               />
             </div>
             <div>
@@ -412,12 +412,12 @@ const Settings: React.FC = () => {
                 step="0.1"
                 value={speechPitch}
                 onChange={handleSpeechPitchChange}
-                className="w-full"
+                className="w-full accent-[var(--primary-color)] h-2 rounded-lg appearance-none cursor-pointer"
               />
             </div>
             <button
               type="button"
-              className="btn btn-secondary mt-2"
+              className="btn btn-secondary mt-4 w-full py-2"
               onClick={() => {
                 setSpeechRate(1);
                 setSpeechPitch(1);
@@ -488,39 +488,39 @@ const Settings: React.FC = () => {
             <h2 className="text-lg font-semibold">Color Theme</h2>
           </div>
           <div className="flex flex-col items-center">
-            <div className="mb-2 text-sm font-medium">Palettes</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 justify-center items-center">
+            <div className="mb-4 text-sm font-medium">Palettes</div>
+            <div className="grid grid-cols-2 gap-4 w-full justify-center items-center">
               {PALETTE_PRESETS.map((preset, idx) => (
                 <button
                   key={preset.name}
-                  className={`group border-2 rounded-xl p-3 flex flex-col items-center transition-all duration-200 ${activePalette === idx ? 'border-[var(--primary-color)] shadow-lg' : 'border-transparent hover:border-[var(--primary-color)]'}`}
+                  className={`group border-2 rounded-xl p-2 flex flex-col items-center transition-all duration-200 ${activePalette === idx ? 'border-[var(--primary-color)] shadow-lg' : 'border-transparent hover:border-[var(--primary-color)]'}`}
                   onClick={() => setActivePalette(idx)}
                   aria-label={`Select ${preset.name} palette`}
                   style={{ alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <span className="font-semibold mb-2 text-[var(--text-primary)] group-hover:text-[var(--primary-color)] text-center">{preset.name}</span>
-                  <div className="flex gap-2 justify-center items-center">
+                  <span className="font-semibold mb-2 text-[var(--text-primary)] group-hover:text-[var(--primary-color)] text-center text-sm">{preset.name}</span>
+                  <div className="flex flex-col gap-1 justify-center items-center w-full">
                     {/* Light preview */}
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center w-full">
                       <span className="text-xs mb-1">Light</span>
-                      <div className="flex">
-                        {THEME_VARIABLES.map((key, j) => (
+                      <div className="flex w-full">
+                        {THEME_VARIABLES.slice(0, 5).map((key, j) => (
                           <span
                             key={j}
-                            className="w-4 h-6 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg border border-gray-200"
+                            className="flex-1 h-4 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg"
                             style={{ background: (preset.light as {[key: string]: string})[key] }}
                           />
                         ))}
                       </div>
                     </div>
                     {/* Dark preview */}
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center w-full">
                       <span className="text-xs mb-1">Dark</span>
-                      <div className="flex">
-                        {THEME_VARIABLES.map((key, j) => (
+                      <div className="flex w-full">
+                        {THEME_VARIABLES.slice(0, 5).map((key, j) => (
                           <span
                             key={j}
-                            className="w-4 h-6 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg border border-gray-200"
+                            className="flex-1 h-4 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg"
                             style={{ background: (preset.dark as {[key: string]: string})[key] }}
                           />
                         ))}
@@ -534,7 +534,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Logout Button */}
-        <div className="mt-6">
+        <div className="mt-8">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center space-x-2 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-medium rounded-lg py-3 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"

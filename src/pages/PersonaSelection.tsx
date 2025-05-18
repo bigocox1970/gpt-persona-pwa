@@ -7,7 +7,7 @@ import type { Persona } from '../contexts/PersonaContext';
 const PersonaCard: React.FC<{ persona: Persona; onSelect: () => void; disabled?: boolean }> = ({ persona, onSelect, disabled }) => (
   <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl bg-cover bg-center flex flex-col justify-end" style={{ backgroundImage: `url(${persona.image})` }}>
     <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/60 to-black z-10" />
-    <div className="relative z-20 p-8">
+    <div className="relative z-20 p-8 pb-10">
       <h2 className="text-3xl font-bold text-white mb-2">{persona.name}</h2>
       <p className="text-white/90 text-lg mb-3">{persona.title}</p>
       <p className="text-white/80 text-sm mb-6">{persona.description}</p>
@@ -91,10 +91,10 @@ const PersonaSelection: React.FC = () => {
   const nextPersona = nextIndex !== null ? personas[nextIndex] : null;
 
   return (
-    <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] overflow-hidden">
-      <div className="flex-1 flex items-start justify-center relative select-none px-2 sm:px-6 md:px-12 py-0 pb-8">
+    <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
+      <div className="flex-1 flex items-center justify-center relative select-none px-2 sm:px-6 md:px-12 py-0 pb-16 overflow-visible">
         <div
-          className="w-full max-w-lg h-[80vh] min-h-[340px] flex items-center justify-center relative"
+          className="w-full max-w-lg h-[72vh] min-h-[340px] flex items-center justify-center relative mb-8 overflow-visible"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -114,7 +114,7 @@ const PersonaSelection: React.FC = () => {
             {isFlipping && nextPersona ? (
               <div
                 className={`flip-card-inner w-full h-full ${flipDirection === 'left' ? 'flip-left' : 'flip-right'}`}
-                style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform 0.6s cubic-bezier(.4,2,.6,1)' }}
+                style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform 0.6s cubic-bezier(.4,2,.6,1)', overflow: 'visible' }}
               >
                 {/* Front Face (current) */}
                 <div
@@ -149,7 +149,7 @@ const PersonaSelection: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="text-center p-2 text-gray-400">
+      <div className="text-center p-2 mb-4 text-gray-400">
         <p className="text-sm">
           Swipe, use arrows, or keyboard to browse personas ({currentIndex + 1} / {personas.length})
         </p>
@@ -183,6 +183,10 @@ const PersonaSelection: React.FC = () => {
           display: none !important;
           width: 0 !important;
           background: transparent !important;
+        }
+        /* Ensure card animations have enough space */
+        .flip-card-inner, .flip-card-front, .flip-card-back {
+          overflow: visible !important;
         }
         /* Persona card border and shadow - only on the main card container */
         .flip-card-front > .relative.rounded-3xl,

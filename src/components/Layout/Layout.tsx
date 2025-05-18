@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MessageSquare, User, Settings, PenTool as Tool } from 'lucide-react';
 import { usePersona } from '../../contexts/PersonaContext';
 import Header from './Header';
+import ChatHistory from '../../pages/ChatHistory';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedPersona } = usePersona();
+  const [showHistory, setShowHistory] = useState(false);
 
   const getActiveClass = (path: string) => {
     return location.pathname === path ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary)]';
@@ -26,14 +28,24 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
 
   const isChatPage = location.pathname === '/chat';
 
+  const handleHistoryClick = () => {
+    setShowHistory(true);
+  };
+
+  const handleHistoryClose = () => {
+    setShowHistory(false);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
       <Header
         showPersona={isChatPage && !!selectedPersona}
         persona={isChatPage ? selectedPersona : undefined}
         title={!isChatPage ? getHeaderTitle() : undefined}
+        onHistoryClick={isChatPage ? handleHistoryClick : undefined}
       />
-      <main className="flex-1 overflow-y-auto pb-[64px] pt-[64px] sm:pt-[64px] sm:pb-[64px]">
+      {showHistory && <ChatHistory onClose={handleHistoryClose} />}
+      <main className={`flex-1 overflow-y-auto pb-[64px] ${isChatPage ? 'pt-0' : 'pt-[64px]'} sm:pb-[64px]`}>
         {children}
       </main>
       <nav className="fixed bottom-0 left-0 right-0 z-20 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-[var(--secondary-color)] py-3 px-6 shadow-t flex justify-around items-center">

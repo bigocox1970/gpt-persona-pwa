@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, MessageSquare, Calendar } from 'lucide-react';
+import { usePersona } from '../contexts/PersonaContext';
+import { useNavigate } from 'react-router-dom';
+import { X, MessageSquare, Calendar, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ChatSession {
@@ -27,6 +29,8 @@ interface ChatSession {
 
 const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { user } = useAuth();
+  const { selectChatSession } = usePersona();
+  const navigate = useNavigate();
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +69,23 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const formatMessagePreview = (messages: ChatSession['messages']) => {
     if (!messages.length) return 'No messages';
-    return messages[messages.length - 1].content.slice(0, 100) + '...';
+    return messages[messages.length - 1].content.slice(0, 100) + (messages[messages.length - 1].content.length > 100 ? '...' : '');
+  };
+
+  const handleChatSelect = (session: ChatSession) => {
+    console.log('Selecting chat session:', session.id, 'with persona:', session.persona_id);
+    
+    // First close the modal to prevent any interference with navigation
+    onClose();
+    
+    // Select the chat session
+    selectChatSession(session.id, session.persona_id);
+    
+    // Use a slight delay to ensure the context is updated before navigation
+    setTimeout(() => {
+      console.log('Navigating to chat page');
+      navigate('/chat', { replace: true });
+    }, 50);
   };
 
   return (
@@ -103,7 +123,8 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   key={session.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl overflow-hidden"
+                  className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 group"
+                  onClick={() => handleChatSelect(session)}
                 >
                   <div className="flex items-start p-4">
                     <img
@@ -130,13 +151,18 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="border-t border-[var(--secondary-color)] p-4 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)]">
-                    <p className="text-sm text-[var(--text-primary)]">
+                  <div className="border-t border-[var(--secondary-color)] p-4 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] relative">
+                    <p className="text-sm text-[var(--text-primary)] pr-8">
                       {formatMessagePreview(session.messages)}
                     </p>
                     <p className="text-xs text-[var(--text-secondary)] mt-2">
                       Last message: {format(new Date(session.last_message_at), 'MMM d, yyyy h:mm a')}
                     </p>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="p-2 rounded-full bg-[var(--primary-color)] text-white">
+                        <ArrowRight size={16} />
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               ))}
