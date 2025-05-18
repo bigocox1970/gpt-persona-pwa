@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 interface Note {
   id: string;
   content: string;
+  title?: string;
   chat_id?: string;
   message_id?: string;
   created_at: string;
@@ -13,8 +14,8 @@ interface Note {
 
 interface NotesContextType {
   notes: Note[];
-  addNote: (content: string, chatId?: string, messageId?: string) => Promise<void>;
-  updateNote: (id: string, content: string) => Promise<void>;
+  addNote: (content: string, title?: string, chatId?: string, messageId?: string) => Promise<void>;
+  updateNote: (id: string, content: string, title?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
@@ -63,7 +64,7 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addNote = async (content: string, chatId?: string, messageId?: string) => {
+  const addNote = async (content: string, title?: string, chatId?: string, messageId?: string) => {
     if (!user) return;
 
     try {
@@ -73,6 +74,7 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .insert({
           user_id: user.id,
           content,
+          title,
           chat_id: chatId,
           message_id: messageId,
         })
@@ -88,14 +90,14 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const updateNote = async (id: string, content: string) => {
+  const updateNote = async (id: string, content: string, title?: string) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('notes')
-        .update({ content })
+        .update({ content, title })
         .eq('id', id)
         .eq('user_id', user.id)
         .select()

@@ -1,31 +1,37 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --primary-color: #C2A76C;
-  --secondary-color: #7C5E3C;
-  --accent-color: #A67B5B;
-  --success-color: #8B7355;
-  --warning-color: #CD853F;
-  --error-color: #8B4513;
-  --text-primary: #2C1810;
-  --text-secondary: #7C5E3C;
-  --background-primary: #F5E6D3;
-  --background-secondary: #E6D5B8;
+  --primary-color: #D98324;      /* Orange accent for buttons, highlights */
+  --secondary-color: #443627;    /* Deep brown for text, icons, and strong contrast */
+  --accent-color: #EFDCAB;       /* Light tan for cards, secondary backgrounds */
+  --success-color: #443627;      /* Deep brown for success/contrast */
+  --warning-color: #D98324;      /* Orange for warning/accent */
+  --error-color: #D98324;        /* Orange for error (palette has no red) */
+  --text-primary: #443627;       /* Deep brown for text */
+  --text-secondary: #D98324;     /* Orange for secondary text */
+  --background-primary: #F2F6D0; /* Lightest background */
+  --background-secondary: #EFDCAB; /* Card backgrounds, input backgrounds */
 }
 
 .dark {
-  --primary-color: #C2A76C;
-  --secondary-color: #7C5E3C;
-  --accent-color: #A67B5B;
-  --success-color: #C2A76C;
-  --warning-color: #CD853F;
-  --error-color: #8B4513;
-  --text-primary: #F5E6D3;
-  --text-secondary: #C2A76C;
-  --background-primary: #2C1810;
-  --background-secondary: #7C5E3C;
+  --primary-color: #EFDCAB;      /* Light tan for text/icons on dark */
+  --secondary-color: #D98324;    /* Orange for accents */
+  --accent-color: #443627;       /* Deep brown for highlights */
+  --success-color: #EFDCAB;
+  --warning-color: #D98324;
+  --error-color: #EFDCAB;
+  --text-primary: #EFDCAB;       /* Light tan for text */
+  --text-secondary: #F2F6D0;     /* Lightest for secondary text */
+  --background-primary: #443627; /* Deep brown for background */
+  --background-secondary: #D98324; /* Orange for cards, modals */
 }
 
 @layer base {
@@ -49,14 +55,18 @@
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.08);
   }
 
   .btn-primary {
     @apply bg-[var(--primary-color)] text-[var(--background-primary)] hover:bg-opacity-90;
+    border: 1px solid var(--primary-color);
   }
 
   .btn-secondary {
     @apply bg-[var(--secondary-color)] text-[var(--background-primary)] hover:bg-opacity-90;
+    border: 1px solid var(--secondary-color);
   }
 
   .card {
@@ -88,28 +98,28 @@
 
 /* Persona-specific styles */
 .persona-einstein {
-  --persona-color: #E6D5B8;
-  --persona-bg: #2C1810;
+  --persona-color: #EFDCAB;
+  --persona-bg: #443627;
 }
 
 .persona-aurelius {
-  --persona-color: #D4B996;
-  --persona-bg: #2C1810;
+  --persona-color: #F2F6D0;
+  --persona-bg: #D98324;
 }
 
 .persona-watts {
-  --persona-color: #E6D5B8;
-  --persona-bg: #2C1810;
+  --persona-color: #EFDCAB;
+  --persona-bg: #443627;
 }
 
 .persona-hill {
-  --persona-color: #D4B996;
-  --persona-bg: #2C1810;
+  --persona-color: #F2F6D0;
+  --persona-bg: #D98324;
 }
 
 .persona-goddard {
-  --persona-color: #E6D5B8;
-  --persona-bg: #2C1810;
+  --persona-color: #EFDCAB;
+  --persona-bg: #443627;
 }
 
 /* Chat bubbles */
@@ -140,4 +150,41 @@
 @keyframes voice-wave {
   0%, 40%, 100% { height: 8px; }
   20% { height: 20px; }
+}
+
+/* Sticky nav shadow for top border */
+.shadow-t {
+  box-shadow: 0 -2px 8px 0 rgba(44,24,16,0.06);
+}
+
+/* Responsive nav button tap targets */
+nav button {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+@media (max-width: 640px) {
+  header, nav {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .min-h-[64px] {
+    min-height: 56px !important;
+  }
+}
+
+/* Ensure main content is not hidden behind sticky header/footer */
+main.pt-[64px] {
+  padding-top: 64px;
+}
+main.pb-[64px] {
+  padding-bottom: 64px;
+}
+@media (max-width: 640px) {
+  main.pt-[64px] {
+    padding-top: 56px;
+  }
+  main.pb-[64px] {
+    padding-bottom: 56px;
+  }
 }

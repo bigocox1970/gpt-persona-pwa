@@ -92,13 +92,7 @@ const PersonaSelection: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] overflow-hidden">
-      <div className="text-center pt-4 pb-2">
-        <h1 className="text-2xl font-bold text-white mb-1">Choose Your Persona</h1>
-        <p className="text-gray-300 px-6 text-base">
-          Browse through personas and select one to start a conversation
-        </p>
-      </div>
-      <div className="flex-1 flex items-center justify-center relative select-none px-2 sm:px-6 md:px-12 py-0">
+      <div className="flex-1 flex items-start justify-center relative select-none px-2 sm:px-6 md:px-12 py-0 pb-8">
         <div
           className="w-full max-w-lg h-[80vh] min-h-[340px] flex items-center justify-center relative"
           onTouchStart={onTouchStart}

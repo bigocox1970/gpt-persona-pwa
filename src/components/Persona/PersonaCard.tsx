@@ -19,16 +19,13 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
   return (
     <motion.div
       style={style}
-      className="relative overflow-hidden rounded-2xl shadow-lg bg-white dark:bg-gray-800"
+      className={`relative overflow-hidden rounded-2xl shadow-lg card ${persona.className}`}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => onSelect(persona)}
     >
       <div 
-        className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-70 z-10"
-        style={{ 
-          background: `linear-gradient(to bottom, transparent 40%, ${persona.backgroundColor} 100%)`,
-        }}
+        className="absolute inset-0 bg-gradient-to-b from-transparent to-[var(--persona-bg)] opacity-70 z-10"
       />
       
       <img 
@@ -38,14 +35,14 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
       />
       
       <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
-        <h2 className="text-2xl font-bold text-white mb-1">{persona.name}</h2>
-        <p className="text-white text-opacity-90 text-sm">{persona.title}</p>
-        <p className="text-white text-opacity-80 text-xs mt-2">{persona.description}</p>
+        <h2 className="text-2xl font-bold text-[var(--persona-color)] mb-1">{persona.name}</h2>
+        <p className="text-[var(--persona-color)] text-opacity-90 text-sm">{persona.title}</p>
+        <p className="text-[var(--persona-color)] text-opacity-80 text-xs mt-2">{persona.description}</p>
       </div>
       
       {isSelected && (
-        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-1 z-20">
-          <Check className="h-4 w-4 text-white" />
+        <div className="absolute top-4 right-4 bg-[var(--primary-color)] rounded-full p-1 z-20">
+          <Check className="h-4 w-4 text-[var(--background-primary)]" />
         </div>
       )}
     </motion.div>

@@ -66,7 +66,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       setTranscript(interimTranscript);
       
       if (finalTranscriptValue) {
-        setFinalTranscript(prev => prev + ' ' + finalTranscriptValue.trim());
+        setFinalTranscript(finalTranscriptValue.trim());
       }
     };
 

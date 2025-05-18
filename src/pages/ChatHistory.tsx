@@ -49,8 +49,12 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         if (sessionsError) throw sessionsError;
         setChatSessions(sessions || []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An error occurred while fetching chat history.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -65,32 +69,31 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-[var(--text-primary)]/50 z-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col"
+        className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col"
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Chat History</h2>
+        <div className="p-4 border-b border-[var(--secondary-color)] flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Chat History</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            className="p-2 hover:bg-[var(--primary-color)]/10 rounded-full"
           >
             <X size={20} />
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary-color)]"></div>
             </div>
           ) : error ? (
-            <div className="text-center text-red-500 p-4">{error}</div>
+            <div className="text-center text-[var(--error-color)] p-4">{error}</div>
           ) : chatSessions.length === 0 ? (
-            <div className="text-center text-gray-500 dark:text-gray-400 p-4">
+            <div className="text-center text-[var(--text-secondary)] p-4">
               No chat history found
             </div>
           ) : (
@@ -100,7 +103,7 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   key={session.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-50 dark:bg-gray-700 rounded-xl overflow-hidden"
+                  className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl overflow-hidden"
                 >
                   <div className="flex items-start p-4">
                     <img
@@ -109,13 +112,13 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       className="w-16 h-16 rounded-full object-cover mr-4"
                     />
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-1">
+                      <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">
                         {session.persona.name}
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                      <p className="text-sm text-[var(--text-secondary)] mb-2">
                         {session.persona.title}
                       </p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
                         <span className="flex items-center gap-1">
                           <Calendar size={14} />
                           {format(new Date(session.created_at), 'MMM d, yyyy')}
@@ -127,11 +130,11 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white dark:bg-gray-800">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                  <div className="border-t border-[var(--secondary-color)] p-4 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)]">
+                    <p className="text-sm text-[var(--text-primary)]">
                       {formatMessagePreview(session.messages)}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <p className="text-xs text-[var(--text-secondary)] mt-2">
                       Last message: {format(new Date(session.last_message_at), 'MMM d, yyyy h:mm a')}
                     </p>
                   </div>
