@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #D4B996;
+  --secondary-color: #A67B5B;
+  --accent-color: #8B4513;
+  --success-color: #8B7355;
+  --warning-color: #CD853F;
+  --error-color: #8B4513;
+  --text-primary: #2C1810;
+  --text-secondary: #4A3728;
+  --background-primary: #F5E6D3;
+  --background-secondary: #E6D5B8;
+}
+
+.dark {
+  --primary-color: #8B7355;
+  --secondary-color: #A67B5B;
+  --accent-color: #D4B996;
+  --success-color: #8B7355;
+  --warning-color: #CD853F;
+  --error-color: #8B4513;
+  --text-primary: #E6D5B8;
+  --text-secondary: #C4A484;
+  --background-primary: #1A1412;
+  --background-secondary: #2C1810;
+}
+
+@layer base {
+  body {
+    @apply font-sans text-[var(--text-primary)] bg-[var(--background-primary)] transition-colors duration-200;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold text-[var(--text-primary)] leading-tight;
+  }
+
+  p {
+    @apply text-[var(--text-primary)] leading-relaxed;
+  }
+
+  input:focus {
+    @apply ring-[var(--primary-color)] border-[var(--primary-color)];
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-[var(--primary-color)] text-[var(--background-primary)] hover:bg-opacity-90;
+  }
+
+  .btn-secondary {
+    @apply bg-[var(--secondary-color)] text-[var(--background-primary)] hover:bg-opacity-90;
+  }
+
+  .card {
+    @apply rounded-xl bg-white dark:bg-[var(--background-secondary)] shadow-md transition-colors duration-200;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 rounded-lg border border-[var(--secondary-color)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] dark:bg-[var(--background-secondary)] dark:border-[var(--text-secondary)] dark:text-[var(--text-primary)] transition-colors duration-200;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-[var(--secondary-color)] dark:bg-[var(--text-secondary)] rounded-sm opacity-50;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-[var(--primary-color)] dark:bg-[var(--text-primary)] opacity-70;
+}
+
+/* Persona-specific styles */
+.persona-einstein {
+  --persona-color: #E6D5B8;
+  --persona-bg: #2C1810;
+}
+
+.persona-aurelius {
+  --persona-color: #D4B996;
+  --persona-bg: #2C1810;
+}
+
+.persona-watts {
+  --persona-color: #E6D5B8;
+  --persona-bg: #2C1810;
+}
+
+.persona-hill {
+  --persona-color: #D4B996;
+  --persona-bg: #2C1810;
+}
+
+.persona-goddard {
+  --persona-color: #E6D5B8;
+  --persona-bg: #2C1810;
+}
+
+/* Chat bubbles */
+.chat-bubble {
+  @apply px-4 py-2 rounded-2xl max-w-[80%] break-words;
+}
+
+.chat-bubble-user {
+  @apply bg-[var(--primary-color)] text-[var(--background-primary)] rounded-tr-none;
+}
+
+.chat-bubble-ai {
+  @apply bg-[var(--persona-bg)] text-[var(--persona-color)] rounded-tl-none border border-[var(--persona-color)] border-opacity-20;
+}
+
+/* Voice animations */
+.voice-wave span {
+  @apply inline-block w-1 mx-0.5 bg-[var(--primary-color)] rounded-full;
+  animation: voice-wave 1.2s infinite ease-in-out;
+}
+
+.voice-wave span:nth-child(1) { animation-delay: 0s; }
+.voice-wave span:nth-child(2) { animation-delay: 0.1s; }
+.voice-wave span:nth-child(3) { animation-delay: 0.2s; }
+.voice-wave span:nth-child(4) { animation-delay: 0.3s; }
+.voice-wave span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes voice-wave {
+  0%, 40%, 100% { height: 8px; }
+  20% { height: 20px; }
+}

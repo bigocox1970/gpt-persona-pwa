@@ -1,0 +1,172 @@
+import React, { useState, useEffect } from 'react';
+import { Route, Routes, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import Layout from './components/Layout/Layout';
+import Chat from './pages/Chat';
+import PersonaSelection from './pages/PersonaSelection';
+import Settings from './pages/Settings';
+import Login from './pages/Login';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PersonaProvider } from './contexts/PersonaContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { NotesProvider } from './tools/Notes/NotesContext';
+import { TodosProvider } from './tools/Todos/TodosContext';
+import NotesPage from './tools/Notes/NotesPage';
+import TodosPage from './tools/Todos/TodosPage';
+import ToolsPage from './tools/ToolsPage';
+import ChatHistory from './pages/ChatHistory';
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showTools, setShowTools] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showTodos, setShowTodos] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/tools/notes') {
+      setShowNotes(true);
+      setShowTools(false);
+      setShowTodos(false);
+      setShowHistory(false);
+    } else if (path === '/tools/todos') {
+      setShowTodos(true);
+      setShowTools(false);
+      setShowNotes(false);
+      setShowHistory(false);
+    } else if (path === '/tools/history') {
+      setShowHistory(true);
+      setShowTools(false);
+      setShowNotes(false);
+      setShowTodos(false);
+    } else if (path === '/tools') {
+      setShowTools(true);
+      setShowNotes(false);
+      setShowTodos(false);
+      setShowHistory(false);
+    }
+  }, [location]);
+
+  const handleToolsClick = () => {
+    setShowTools(true);
+    setShowNotes(false);
+    setShowTodos(false);
+    setShowHistory(false);
+    navigate('/tools');
+  };
+
+  const handleClose = () => {
+    setShowTools(false);
+    setShowNotes(false);
+    setShowTodos(false);
+    setShowHistory(false);
+    navigate(-1);
+  };
+
+  return (
+    <>
+      <Routes>
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={handleToolsClick}>
+                <PersonaSelection />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/chat" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={handleToolsClick}>
+                <Chat />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={handleToolsClick}>
+                <Settings />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {showTools && <ToolsPage onClose={handleClose} />}
+      {showNotes && <NotesPage onClose={handleClose} />}
+      {showTodos && <TodosPage onClose={handleClose} />}
+      {showHistory && <ChatHistory onClose={handleClose} />}
+    </>
+  );
+}
+
+function App() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/serviceWorker.js')
+          .then(registration => {
+            console.log('ServiceWorker registration successful');
+          })
+          .catch(err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
+
+    const handleOnlineStatus = () => setIsOnline(true);
+    const handleOfflineStatus = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOfflineStatus);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOfflineStatus);
+    };
+  }, []);
+
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <PersonaProvider>
+          <NotesProvider>
+            <TodosProvider>
+              {!isOnline && (
+                <div className="fixed top-0 left-0 right-0 bg-red-500 text-white py-1 text-center text-sm z-50">
+                  You are currently offline. Some features may be limited.
+                </div>
+              )}
+              <AppRoutes />
+            </TodosProvider>
+          </NotesProvider>
+        </PersonaProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+export default App;
