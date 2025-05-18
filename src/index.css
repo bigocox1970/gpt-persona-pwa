@@ -3,29 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --primary-color: #D4B996;
-  --secondary-color: #A67B5B;
-  --accent-color: #8B4513;
+  --primary-color: #C2A76C;
+  --secondary-color: #7C5E3C;
+  --accent-color: #A67B5B;
   --success-color: #8B7355;
   --warning-color: #CD853F;
   --error-color: #8B4513;
   --text-primary: #2C1810;
-  --text-secondary: #4A3728;
+  --text-secondary: #7C5E3C;
   --background-primary: #F5E6D3;
   --background-secondary: #E6D5B8;
 }
 
 .dark {
-  --primary-color: #8B7355;
-  --secondary-color: #A67B5B;
-  --accent-color: #D4B996;
-  --success-color: #8B7355;
+  --primary-color: #C2A76C;
+  --secondary-color: #7C5E3C;
+  --accent-color: #A67B5B;
+  --success-color: #C2A76C;
   --warning-color: #CD853F;
   --error-color: #8B4513;
-  --text-primary: #E6D5B8;
-  --text-secondary: #C4A484;
-  --background-primary: #1A1412;
-  --background-secondary: #2C1810;
+  --text-primary: #F5E6D3;
+  --text-secondary: #C2A76C;
+  --background-primary: #2C1810;
+  --background-secondary: #7C5E3C;
 }
 
 @layer base {
@@ -114,7 +114,7 @@
 
 /* Chat bubbles */
 .chat-bubble {
-  @apply px-4 py-2 rounded-2xl max-w-[80%] break-words;
+  @apply px-4 py-2 rounded-2xl break-words w-fit;
 }
 
 .chat-bubble-user {

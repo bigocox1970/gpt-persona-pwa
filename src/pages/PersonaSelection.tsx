@@ -69,7 +69,7 @@ const PersonaSelection: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-gray-900 to-black">
+    <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
       <div className="text-center pt-8 pb-4">
         <h1 className="text-2xl font-bold text-white mb-2">Choose Your Persona</h1>
         <p className="text-gray-300 px-6">

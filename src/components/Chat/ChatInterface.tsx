@@ -6,12 +6,7 @@ import { useSTT } from '../../hooks/useSTT';
 import { useAuth } from '../../contexts/AuthContext';
 import MessageBubble from './MessageBubble';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
 
 interface Message {
   id: string;
@@ -239,7 +234,7 @@ const ChatInterface: React.FC = () => {
           role: msg.sender === 'user' ? 'user' : 'assistant',
           content: msg.text
         }));
-        const res = await fetch('http://localhost:3001/api/chat', {
+        const res = await fetch('/.netlify/functions/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -339,9 +334,9 @@ const ChatInterface: React.FC = () => {
   }
 
   return (
-    <div className={`flex flex-col h-full ${selectedPersona.className}`}>
+    <div className={`flex flex-col h-full ${selectedPersona.className} bg-[var(--background-primary)] dark:bg-[var(--background-primary)]`}>
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 overflow-y-auto p-4 bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <img 
@@ -385,7 +380,7 @@ const ChatInterface: React.FC = () => {
       </div>
       
       {/* Input area */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center">
           <button 
             className={`p-2 rounded-full mr-2 ${isListening ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}

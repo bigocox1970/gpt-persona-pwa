@@ -110,12 +110,12 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-gray-50 dark:bg-gray-900 p-4">
+    <div className="min-h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] p-4">
       <div className="max-w-md mx-auto">
         <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
         {/* User Info */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+        <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
           <div className="flex items-center space-x-3 mb-2">
             <User className="text-gray-600 dark:text-gray-400" />
             <h2 className="text-lg font-semibold">Account</h2>
@@ -209,7 +209,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Voice Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+        <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
           <div className="flex items-center space-x-3 mb-4">
             <Volume2 className="text-gray-600 dark:text-gray-400" />
             <h2 className="text-lg font-semibold">Voice Output</h2>
@@ -266,7 +266,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Voice Input Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+        <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
           <div className="flex items-center space-x-3 mb-4">
             <Mic className="text-gray-600 dark:text-gray-400" />
             <h2 className="text-lg font-semibold">Voice Input</h2>
@@ -293,7 +293,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Display Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
+        <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {isDarkMode ? (
