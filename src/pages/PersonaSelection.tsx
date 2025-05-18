@@ -1,149 +1,205 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import TinderCard from 'react-tinder-card';
-import { motion } from 'framer-motion';
 import { usePersona } from '../contexts/PersonaContext';
 import { ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import type { Persona } from '../contexts/PersonaContext';
+
+const PersonaCard: React.FC<{ persona: Persona; onSelect: () => void; disabled?: boolean }> = ({ persona, onSelect, disabled }) => (
+  <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl bg-cover bg-center flex flex-col justify-end" style={{ backgroundImage: `url(${persona.image})` }}>
+    <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/60 to-black z-10" />
+    <div className="relative z-20 p-8">
+      <h2 className="text-3xl font-bold text-white mb-2">{persona.name}</h2>
+      <p className="text-white/90 text-lg mb-3">{persona.title}</p>
+      <p className="text-white/80 text-sm mb-6">{persona.description}</p>
+      <button
+        onClick={onSelect}
+        className="w-full bg-white/90 hover:bg-white text-black font-medium rounded-xl py-3 px-6 flex items-center justify-center space-x-2 transition-all duration-200 shadow-lg backdrop-blur-sm"
+        disabled={disabled}
+      >
+        <MessageSquare size={20} />
+        <span>Start Conversation</span>
+      </button>
+    </div>
+  </div>
+);
 
 const PersonaSelection: React.FC = () => {
   const navigate = useNavigate();
   const { personas, selectPersona } = usePersona();
-  const [currentIndex, setCurrentIndex] = useState(personas.length - 1);
-  const [lastDirection, setLastDirection] = useState<string>();
-  
-  const currentIndexRef = useRef(currentIndex);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<'left' | 'right' | null>(null);
+  const [nextIndex, setNextIndex] = useState<number | null>(null);
 
-  const childRefs = useMemo(
-    () =>
-      Array(personas.length)
-        .fill(0)
-        .map(() => React.createRef<any>()),
-    []
-  );
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') prevCard();
+      if (e.key === 'ArrowRight') nextCard();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, personas.length]);
 
-  const updateCurrentIndex = (val: number) => {
-    setCurrentIndex(val);
-    currentIndexRef.current = val;
-  };
-
-  const canGoBack = currentIndex < personas.length - 1;
-
-  const swiped = (direction: string, nameToDelete: string, index: number) => {
-    setLastDirection(direction);
-    updateCurrentIndex(index - 1);
-  };
-
-  const outOfFrame = (name: string, idx: number) => {
-    console.log(`${name} (${idx}) left the screen!`, currentIndexRef.current);
-    if (currentIndexRef.current < 0) {
-      setCurrentIndex(personas.length - 1);
-      currentIndexRef.current = personas.length - 1;
-      childRefs.forEach((ref) => {
-        ref.current?.restoreCard();
-      });
+  // Touch swipe navigation
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+  const onTouchStart = (e: React.TouchEvent) => setTouchStartX(e.changedTouches[0].clientX);
+  const onTouchMove = (e: React.TouchEvent) => setTouchEndX(e.changedTouches[0].clientX);
+  const onTouchEnd = () => {
+    if (touchStartX !== null && touchEndX !== null) {
+      const distance = touchStartX - touchEndX;
+      if (distance > minSwipeDistance) nextCard();
+      else if (distance < -minSwipeDistance) prevCard();
     }
+    setTouchStartX(null);
+    setTouchEndX(null);
   };
 
-  const swipe = async (dir: string) => {
-    if (currentIndex < 0) {
-      setCurrentIndex(personas.length - 1);
-      currentIndexRef.current = personas.length - 1;
-      childRefs.forEach((ref) => {
-        ref.current?.restoreCard();
-      });
-    } else {
-      await childRefs[currentIndex].current?.swipe(dir);
-    }
+  const triggerFlip = (newIndex: number, dir: 'left' | 'right') => {
+    setFlipDirection(dir);
+    setNextIndex(newIndex);
+    setIsFlipping(true);
+    setTimeout(() => {
+      setCurrentIndex(newIndex);
+      setIsFlipping(false);
+      setNextIndex(null);
+      setFlipDirection(null);
+    }, 600); // match CSS duration
   };
 
-  const goBack = async () => {
-    if (!canGoBack) return;
-    const newIndex = currentIndex + 1;
-    updateCurrentIndex(newIndex);
-    await childRefs[newIndex].current?.restoreCard();
-  };
+  const prevCard = useCallback(() => {
+    if (isFlipping) return;
+    const newIndex = currentIndex === 0 ? personas.length - 1 : currentIndex - 1;
+    triggerFlip(newIndex, 'left');
+  }, [currentIndex, personas.length, isFlipping]);
 
-  const handleSelect = (persona: any) => {
+  const nextCard = useCallback(() => {
+    if (isFlipping) return;
+    const newIndex = currentIndex === personas.length - 1 ? 0 : currentIndex + 1;
+    triggerFlip(newIndex, 'right');
+  }, [currentIndex, personas.length, isFlipping]);
+
+  const handleSelect = (persona: Persona) => {
     selectPersona(persona);
     navigate('/chat');
   };
 
+  if (!personas.length) return null;
+  const persona = personas[currentIndex];
+  const nextPersona = nextIndex !== null ? personas[nextIndex] : null;
+
   return (
-    <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
-      <div className="text-center pt-8 pb-4">
-        <h1 className="text-2xl font-bold text-white mb-2">Choose Your Persona</h1>
-        <p className="text-gray-300 px-6">
+    <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] overflow-hidden">
+      <div className="text-center pt-4 pb-2">
+        <h1 className="text-2xl font-bold text-white mb-1">Choose Your Persona</h1>
+        <p className="text-gray-300 px-6 text-base">
           Browse through personas and select one to start a conversation
         </p>
       </div>
-      
-      <div className="flex-1 flex items-center justify-center relative">
-        {/* Left Arrow */}
-        <button
-          onClick={() => swipe('left')}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-4 rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-all duration-200"
+      <div className="flex-1 flex items-center justify-center relative select-none px-2 sm:px-6 md:px-12 py-0">
+        <div
+          className="w-full max-w-lg h-[80vh] min-h-[340px] flex items-center justify-center relative"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
         >
-          <ChevronLeft size={24} />
-        </button>
-
-        {/* Right Arrow */}
-        <button
-          onClick={() => swipe('right')}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 p-4 rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-all duration-200"
-        >
-          <ChevronRight size={24} />
-        </button>
-
-        <div className="w-full max-w-sm h-[70vh] relative">
-          {personas.map((persona, index) => (
-            <TinderCard
-              ref={childRefs[index]}
-              key={persona.id}
-              onSwipe={(dir) => swiped(dir, persona.name, index)}
-              onCardLeftScreen={() => outOfFrame(persona.name, index)}
-              preventSwipe={['up', 'down']}
-              className="absolute w-full h-full"
-            >
-              <motion.div 
-                className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
-                style={{
-                  backgroundImage: `url(${persona.image})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-                whileTap={{ scale: 0.98 }}
+          {/* Left Arrow (on card edge) */}
+          <button
+            onClick={prevCard}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition-all duration-200"
+            style={{ transform: 'translateY(-50%) translateX(-50%)' }}
+            aria-label="Previous Persona"
+            disabled={isFlipping}
+          >
+            <ChevronLeft size={28} />
+          </button>
+          {/* 3D Flip Card */}
+          <div className="relative w-full h-full" style={{ perspective: '1200px' }}>
+            {isFlipping && nextPersona ? (
+              <div
+                className={`flip-card-inner w-full h-full ${flipDirection === 'left' ? 'flip-left' : 'flip-right'}`}
+                style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform 0.6s cubic-bezier(.4,2,.6,1)' }}
               >
-                <div 
-                  className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/60 to-black z-10"
-                />
-                
-                <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
-                  <h2 className="text-3xl font-bold text-white mb-2">{persona.name}</h2>
-                  <p className="text-white/90 text-lg mb-3">{persona.title}</p>
-                  <p className="text-white/80 text-sm mb-6">{persona.description}</p>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelect(persona);
-                    }}
-                    className="w-full bg-white/90 hover:bg-white text-black font-medium rounded-xl py-3 px-6 flex items-center justify-center space-x-2 transition-all duration-200 shadow-lg backdrop-blur-sm"
-                  >
-                    <MessageSquare size={20} />
-                    <span>Start Conversation</span>
-                  </button>
+                {/* Front Face (current) */}
+                <div
+                  className="flip-card-front absolute w-full h-full"
+                  style={{ backfaceVisibility: 'hidden', zIndex: 2 }}
+                >
+                  <PersonaCard persona={persona} onSelect={() => handleSelect(persona)} disabled={true} />
                 </div>
-              </motion.div>
-            </TinderCard>
-          ))}
+                {/* Back Face (next) */}
+                <div
+                  className="flip-card-back absolute w-full h-full"
+                  style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', zIndex: 1 }}
+                >
+                  <PersonaCard persona={nextPersona} onSelect={() => handleSelect(nextPersona)} disabled={true} />
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full">
+                <PersonaCard persona={persona} onSelect={() => handleSelect(persona)} disabled={false} />
+              </div>
+            )}
+          </div>
+          {/* Right Arrow (on card edge) */}
+          <button
+            onClick={nextCard}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition-all duration-200"
+            style={{ transform: 'translateY(-50%) translateX(50%)' }}
+            aria-label="Next Persona"
+            disabled={isFlipping}
+          >
+            <ChevronRight size={28} />
+          </button>
         </div>
       </div>
-      
-      <div className="text-center p-4 text-gray-400">
+      <div className="text-center p-2 text-gray-400">
         <p className="text-sm">
-          Swipe or use arrows to browse personas
+          Swipe, use arrows, or keyboard to browse personas ({currentIndex + 1} / {personas.length})
         </p>
       </div>
+      {/* Double-sided Flip Animation CSS and scrollbar hiding */}
+      <style>{`
+        .flip-card-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+        .flip-left {
+          transform: rotateY(-180deg);
+        }
+        .flip-right {
+          transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          top: 0;
+          left: 0;
+        }
+        /* Hide scrollbars for all browsers */
+        html, body, #root, .flex-1, .h-full, .min-h-full {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        html::-webkit-scrollbar, body::-webkit-scrollbar, #root::-webkit-scrollbar, .flex-1::-webkit-scrollbar, .h-full::-webkit-scrollbar, .min-h-full::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          background: transparent !important;
+        }
+        /* Persona card border and shadow - only on the main card container */
+        .flip-card-front > .relative.rounded-3xl,
+        .flip-card-back > .relative.rounded-3xl,
+        .w-full.h-full > .relative.rounded-3xl {
+          border: 3px solid var(--primary-color);
+          box-shadow: 0 4px 32px 0 rgba(44,24,16,0.10), 0 1.5px 6px 0 rgba(44,24,16,0.10);
+          border-radius: 1.5rem;
+          background-clip: padding-box;
+        }
+      `}</style>
     </div>
   );
 };

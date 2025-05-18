@@ -190,6 +190,11 @@ const ChatInterface: React.FC = () => {
       }
 
       // Save user message
+      console.log('Saving user message:', {
+        chat_id: currentSessionId,
+        content: userMessageText,
+        sender: 'user'
+      });
       const { data: userMessage, error: userMessageError } = await supabase
         .from('messages')
         .insert({
@@ -252,6 +257,11 @@ const ChatInterface: React.FC = () => {
       }
       
       // Save AI response
+      console.log('Saving AI message:', {
+        chat_id: currentSessionId,
+        content: aiResponse,
+        sender: 'ai'
+      });
       const { data: aiMessage, error: aiMessageError } = await supabase
         .from('messages')
         .insert({
