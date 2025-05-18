@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#443627",
   "icons": [
     {
       "src": "icons/gptpasonalogo1-sq-192-192.png",
