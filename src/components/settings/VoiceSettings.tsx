@@ -44,12 +44,18 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
   const handleVoiceChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     try {
       const voiceURI = e.target.value;
-      console.log('Selected voice URI:', voiceURI);
+      console.log('[VOICE CHANGE] Selected voice URI:', voiceURI);
       
       // If empty selection, set to null
       if (!voiceURI) {
+        console.log('[VOICE CHANGE] Setting voice to null');
         setSelectedVoice(null);
         onVoiceChange(null);
+        
+        // Force a re-render to ensure the UI updates
+        setTimeout(() => {
+          console.log('[VOICE CHANGE] Forced update after setting voice to null');
+        }, 0);
         return;
       }
       
@@ -58,18 +64,23 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
       
       if (voice) {
         // Immediately update the selected voice state
-        console.log('Setting selected voice to:', voice.name);
+        console.log('[VOICE CHANGE] Setting selected voice to:', voice.name);
         setSelectedVoice(voice);
-        onVoiceChange(voice);
+        
+        // Call the callback with a slight delay to ensure state is updated
+        setTimeout(() => {
+          console.log('[VOICE CHANGE] Calling onVoiceChange callback with:', voice.name);
+          onVoiceChange(voice);
+        }, 0);
         
         // Speak a test phrase with the new voice
         speak('This is a test of the selected voice.', { voice });
       } else {
-        console.error('Could not find voice with URI:', voiceURI);
+        console.error('[VOICE CHANGE] Could not find voice with URI:', voiceURI);
         alert('Error: Could not find the selected voice. Please try another voice.');
       }
     } catch (error) {
-      console.error('Error changing voice:', error);
+      console.error('[VOICE CHANGE] Error changing voice:', error);
       alert('An error occurred while changing voices. Please try again.');
     }
   }, [voices, speak, onVoiceChange]);

@@ -167,14 +167,32 @@ const SettingsManager: React.FC = () => {
   useEffect(() => {
     // Check if voice has changed
     let voiceChanged = false;
+    
+    // Debug voice state
+    console.log('[CHANGE DETECTION] Voice state:', {
+      selectedVoice: selectedVoice ? {
+        name: selectedVoice.name,
+        lang: selectedVoice.lang,
+        voiceURI: selectedVoice.voiceURI
+      } : null,
+      optionsVoice: options.voice ? {
+        name: options.voice.name,
+        lang: options.voice.lang,
+        voiceURI: options.voice.voiceURI
+      } : null
+    });
+    
     if (selectedVoice && !options.voice) {
       // Voice selected for the first time
+      console.log('[CHANGE DETECTION] Voice selected for the first time');
       voiceChanged = true;
     } else if (!selectedVoice && options.voice) {
       // Voice removed
+      console.log('[CHANGE DETECTION] Voice removed');
       voiceChanged = true;
     } else if (selectedVoice && options.voice && selectedVoice.voiceURI !== options.voice.voiceURI) {
       // Different voice selected
+      console.log('[CHANGE DETECTION] Different voice selected');
       voiceChanged = true;
     }
     
