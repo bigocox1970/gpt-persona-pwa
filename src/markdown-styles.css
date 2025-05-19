@@ -1,0 +1,181 @@
+/* Markdown styles for chat bubbles */
+
+/* General text styling */
+.markdown-content {
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  --persona-accent: inherit; /* Default value, will be overridden by inline style */
+  color: inherit; /* Inherit text color from parent (chat bubble) */
+}
+
+/* Headings */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: inherit;
+}
+
+.markdown-content h1 {
+  font-size: 1.5em;
+}
+
+.markdown-content h2 {
+  font-size: 1.3em;
+}
+
+.markdown-content h3 {
+  font-size: 1.2em;
+}
+
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  font-size: 1.1em;
+}
+
+/* Paragraphs and spacing */
+.markdown-content p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  color: inherit;
+}
+
+/* Lists */
+.markdown-content ul,
+.markdown-content ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.5em;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25em;
+  color: inherit;
+}
+
+.markdown-content ul > li {
+  list-style-type: disc;
+}
+
+.markdown-content ol > li {
+  list-style-type: decimal;
+}
+
+/* Nested lists */
+.markdown-content ul ul,
+.markdown-content ol ol,
+.markdown-content ul ol,
+.markdown-content ol ul {
+  margin-top: 0.25em;
+  margin-bottom: 0;
+}
+
+/* Bold and italic */
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+/* Code blocks */
+.markdown-content code {
+  font-family: monospace;
+  padding: 0.2em 0.4em;
+  margin: 0;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.1);
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding: 0.5em;
+  overflow-x: auto;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1em;
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* Links */
+.markdown-content a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Tables */
+.markdown-content table {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  padding: 0.25em 0.5em;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.markdown-content table th {
+  font-weight: 600;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Horizontal rule */
+.markdown-content hr {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  border: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Adjustments for dark mode */
+.dark .markdown-content code,
+.dark .markdown-content pre {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .markdown-content blockquote {
+  border-left-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .markdown-content table th,
+.dark .markdown-content table td {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .markdown-content table th {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark .markdown-content hr {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}

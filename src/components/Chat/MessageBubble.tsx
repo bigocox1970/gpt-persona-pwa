@@ -1,5 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import '../../markdown-styles.css';
 
 interface Message {
   id: string;
@@ -10,10 +13,9 @@ interface Message {
 
 interface MessageBubbleProps {
   message: Message;
-  personaColor?: string;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, personaColor }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.sender === 'user';
   const time = message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -42,7 +44,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, personaColor }) 
         variants={variants}
       >
         <div className={`chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-          {message.text}
+          {isUser ? (
+            message.text
+          ) : (
+            <div className="markdown-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.text}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
         <span className="text-xs text-gray-500 mt-1 px-2">
           {time}

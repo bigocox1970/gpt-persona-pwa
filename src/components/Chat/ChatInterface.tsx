@@ -425,7 +425,6 @@ const ChatInterface: React.FC = () => {
               <MessageBubble 
                 key={message.id}
                 message={message}
-                personaColor={selectedPersona.textColor}
               />
             ))}
             
