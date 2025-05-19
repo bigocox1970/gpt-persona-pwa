@@ -52,7 +52,10 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           .order('last_message_at', { ascending: false });
 
         if (sessionsError) throw sessionsError;
-        setChatSessions(sessions || []);
+        
+        // Filter out sessions with 0 messages
+        const nonEmptySessions = sessions?.filter(session => session.messages.length > 0) || [];
+        setChatSessions(nonEmptySessions);
       } catch (err: unknown) {
         if (err instanceof Error) {
           setError(err.message);

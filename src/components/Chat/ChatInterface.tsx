@@ -7,8 +7,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import MessageBubble from './MessageBubble';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-// Import the Persona type from our new system
-import { Persona as NewPersona } from '../../personas/types';
 
 interface Message {
   id: string;
@@ -69,6 +67,12 @@ const ChatInterface: React.FC = () => {
     return null;
   };
 
+  // Generate a temporary session ID for new chats
+  // This will be replaced with a real DB session ID when the first message is sent
+  const generateTempSessionId = () => {
+    return 'temp-' + Math.random().toString(36).substring(2, 15);
+  };
+
   useEffect(() => {
     const initializeSession = async () => {
       if (!user || !selectedPersona) {
@@ -79,56 +83,44 @@ const ChatInterface: React.FC = () => {
 
       try {
         let sessionId = null;
+        let isTemporarySession = false;
         
         // Check if we have a specific chat session to load from history
         if (selectedChatSessionId) {
-          console.log('Loading specific chat session:', selectedChatSessionId);
-          
-          // Verify the session exists and belongs to this user and persona
-          const { data: sessionData, error: sessionError } = await supabase
-            .from('chat_sessions')
-            .select('id')
-            .eq('id', selectedChatSessionId)
-            .eq('user_id', user.id)
-            .eq('persona_id', selectedPersona.id)
-            .single();
-            
-          if (sessionError || !sessionData) {
-            console.error('Error loading specific session:', sessionError);
-            // Clear the invalid session ID
-            clearChatSession();
-          } else {
-            // Use the specified session
+          // Check if this is a temporary session ID (for new chats)
+          if (selectedChatSessionId.startsWith('temp-')) {
+            console.log('Using temporary session:', selectedChatSessionId);
             sessionId = selectedChatSessionId;
+            isTemporarySession = true;
+          } else {
+            console.log('Loading specific chat session:', selectedChatSessionId);
+            
+            // Verify the session exists and belongs to this user and persona
+            const { data: sessionData, error: sessionError } = await supabase
+              .from('chat_sessions')
+              .select('id')
+              .eq('id', selectedChatSessionId)
+              .eq('user_id', user.id)
+              .eq('persona_id', selectedPersona.id)
+              .single();
+              
+            if (sessionError || !sessionData) {
+              console.error('Error loading specific session:', sessionError);
+              // Clear the invalid session ID
+              clearChatSession();
+            } else {
+              // Use the specified session
+              sessionId = selectedChatSessionId;
+            }
           }
         }
         
-        // If no specific session was loaded, find or create one
+        // If no specific session was loaded, create a temporary one
         if (!sessionId) {
-          // Check for existing session from today
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          const { data: existingSessions, error: sessionError } = await supabase
-            .from('chat_sessions')
-            .select('id, created_at')
-            .eq('user_id', user.id)
-            .eq('persona_id', selectedPersona.id)
-            .gte('created_at', today.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (sessionError) {
-            console.error('Error checking for existing session:', sessionError);
-            // Try to create a new session
-            sessionId = await createNewSession();
-          } else if (existingSessions && existingSessions.length > 0) {
-            console.log('Found existing session:', existingSessions[0].id);
-            sessionId = existingSessions[0].id;
-          } else {
-            // No existing session found, create a new one
-            sessionId = await createNewSession();
-          }
+          // Create a temporary session ID
+          sessionId = generateTempSessionId();
+          isTemporarySession = true;
+          console.log('Created temporary session:', sessionId);
         }
 
         if (!sessionId) {
@@ -137,22 +129,25 @@ const ChatInterface: React.FC = () => {
 
         setChatSessionId(sessionId);
         
-        // Load existing messages for the session
-        const { data: existingMessages, error: messagesError } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('chat_id', sessionId)
-          .order('created_at', { ascending: true });
+        // Only load messages if this is not a temporary session
+        if (!isTemporarySession) {
+          // Load existing messages for the session
+          const { data: existingMessages, error: messagesError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('chat_id', sessionId)
+            .order('created_at', { ascending: true });
 
-        if (messagesError) {
-          console.error('Error loading messages:', messagesError);
-        } else if (existingMessages) {
-          setMessages(existingMessages.map(msg => ({
-            id: msg.id,
-            text: msg.content,
-            sender: msg.sender as 'user' | 'ai',
-            timestamp: new Date(msg.created_at)
-          })));
+          if (messagesError) {
+            console.error('Error loading messages:', messagesError);
+          } else if (existingMessages) {
+            setMessages(existingMessages.map(msg => ({
+              id: msg.id,
+              text: msg.content,
+              sender: msg.sender as 'user' | 'ai',
+              timestamp: new Date(msg.created_at)
+            })));
+          }
         }
         
         setSessionInitialized(true);
@@ -198,23 +193,34 @@ const ChatInterface: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Double-check session exists and create a new one if needed
-      const { data: sessionCheck, error: sessionCheckError } = await supabase
-        .from('chat_sessions')
-        .select('id')
-        .eq('id', chatSessionId)
-        .maybeSingle();
-
       let currentSessionId = chatSessionId;
-
-      if (sessionCheckError || !sessionCheck) {
-        console.log('Session not found, creating new session...');
+      
+      // Check if this is a temporary session that needs to be created in the database
+      if (chatSessionId.startsWith('temp-')) {
+        console.log('Creating permanent session for temporary session:', chatSessionId);
         const newSessionId = await createNewSession();
         if (!newSessionId) {
           throw new Error('Failed to create new chat session');
         }
         currentSessionId = newSessionId;
         setChatSessionId(newSessionId);
+      } else {
+        // Double-check session exists and create a new one if needed
+        const { data: sessionCheck, error: sessionCheckError } = await supabase
+          .from('chat_sessions')
+          .select('id')
+          .eq('id', chatSessionId)
+          .maybeSingle();
+
+        if (sessionCheckError || !sessionCheck) {
+          console.log('Session not found, creating new session...');
+          const newSessionId = await createNewSession();
+          if (!newSessionId) {
+            throw new Error('Failed to create new chat session');
+          }
+          currentSessionId = newSessionId;
+          setChatSessionId(newSessionId);
+        }
       }
 
       // Save user message
@@ -266,10 +272,14 @@ const ChatInterface: React.FC = () => {
         // Check if this is a new persona with the knowledge module system
         let systemPrompt = '';
         
-        // Check if selectedPersona might be a new persona type with generatePrompt
-        if (selectedPersona && typeof (selectedPersona as any).generatePrompt === 'function') {
-          // It's a new persona with the knowledge module system
-          systemPrompt = (selectedPersona as unknown as NewPersona).generatePrompt(userMessageText);
+        // Check if selectedPersona might have a generatePrompt function
+        interface PersonaWithGeneratePrompt {
+          generatePrompt: (text: string) => string;
+        }
+        
+        if (selectedPersona && 'generatePrompt' in selectedPersona) {
+          // It's a persona with a generatePrompt function
+          systemPrompt = (selectedPersona as unknown as PersonaWithGeneratePrompt).generatePrompt(userMessageText);
         } else if (selectedPersona && selectedPersona.prompt) {
           // It's an old persona with just a prompt string
           systemPrompt = selectedPersona.prompt;
