@@ -59,11 +59,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check current auth status
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
+        // Extract user metadata
+        const metadata = session.user.user_metadata;
+        
+        // Reconstruct settings object from flattened metadata
+        const settings: UserSettings = {
+          theme: {
+            activePalette: metadata.theme_palette,
+            isDarkMode: metadata.theme_dark_mode
+          },
+          tts: {
+            voiceURI: metadata.tts_voice_uri,
+            rate: metadata.tts_rate,
+            pitch: metadata.tts_pitch
+          },
+          stt: {
+            language: metadata.stt_language
+          }
+        };
+        
         setUser({
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata.name
+          name: metadata.name,
+          settings: settings
         });
+        
+        console.log('Loaded user settings from Supabase:', settings);
       } else {
         setUser(null);
       }
@@ -170,15 +192,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const saveUserSettings = async (settings: UserSettings) => {
     try {
-      // Preserve the user's name when updating settings
-      const { error } = await supabase.auth.updateUser({
-        data: { 
-          name: user?.name,
-          settings
-        }
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Log for debugging
+      console.log('Saving user settings:', settings);
+      
+      // Flatten the settings structure to avoid nesting issues
+      const userData = {
+        name: user.name,
+        theme_palette: settings.theme?.activePalette,
+        theme_dark_mode: settings.theme?.isDarkMode,
+        tts_voice_uri: settings.tts?.voiceURI,
+        tts_rate: settings.tts?.rate,
+        tts_pitch: settings.tts?.pitch,
+        stt_language: settings.stt?.language
+      };
+      
+      console.log('Sending user data to Supabase:', userData);
+      
+      // Update user metadata with flattened structure
+      const { data, error } = await supabase.auth.updateUser({
+        data: userData
       });
 
+      console.log('Supabase response:', data);
+      
       if (error) {
+        console.error('Supabase error:', error);
         throw new Error(error.message);
       }
       
@@ -196,7 +238,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const getUserSettings = (): UserSettings | undefined => {
-    return user?.settings;
+    if (!user) return undefined;
+    
+    // If we already have settings in the user object, return them
+    if (user.settings) {
+      return user.settings;
+    }
+    
+    // Otherwise return undefined
+    return undefined;
   };
 
   const value = {

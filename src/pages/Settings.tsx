@@ -189,10 +189,16 @@ const Settings: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
-  // Filter voices to only show English voices by default
+  // Filter voices to show all English voices, including non-local ones
   const availableVoices = voices.filter(voice => 
-    voice.lang.startsWith('en') && voice.localService
+    voice.lang.startsWith('en')
   );
+  
+  // Log available voices for debugging
+  useEffect(() => {
+    console.log('All voices:', voices);
+    console.log('Filtered voices:', availableVoices);
+  }, [voices, availableVoices]);
 
   // Load initial TTS settings
   useEffect(() => {
@@ -281,20 +287,46 @@ const Settings: React.FC = () => {
     applyPalette(PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light']);
     
     // Check if we have unsaved changes
-    const hasChanges = 
-      // Color theme changes
-      activePalette !== initialPalette || 
-      // Username changes
-      (username !== (localStorage.getItem('user_display_name') || '')) ||
-      // TTS voice changes
-      (selectedVoice && initialVoiceURI && selectedVoice.voiceURI !== initialVoiceURI) ||
-      // TTS rate changes
-      speechRate !== initialSpeechRate ||
-      // TTS pitch changes
-      speechPitch !== initialSpeechPitch ||
-      // STT language changes
-      selectedLanguage !== initialLanguage;
-      
+    let hasChanges = false;
+    
+    // Check color theme changes
+    if (activePalette !== initialPalette) {
+      hasChanges = true;
+      console.log('Palette changed:', activePalette, initialPalette);
+    }
+    
+    // Check username changes
+    if (username !== (localStorage.getItem('user_display_name') || '')) {
+      hasChanges = true;
+      console.log('Username changed');
+    }
+    
+    // Check TTS voice changes - handle null/undefined cases properly
+    const currentVoiceURI = selectedVoice?.voiceURI || null;
+    if (currentVoiceURI !== initialVoiceURI) {
+      hasChanges = true;
+      console.log('Voice changed:', currentVoiceURI, initialVoiceURI);
+    }
+    
+    // Check TTS rate changes
+    if (speechRate !== initialSpeechRate) {
+      hasChanges = true;
+      console.log('Speech rate changed');
+    }
+    
+    // Check TTS pitch changes
+    if (speechPitch !== initialSpeechPitch) {
+      hasChanges = true;
+      console.log('Speech pitch changed');
+    }
+    
+    // Check STT language changes
+    if (selectedLanguage !== initialLanguage) {
+      hasChanges = true;
+      console.log('Language changed');
+    }
+    
+    console.log('Has unsaved changes:', hasChanges);
     setHasUnsavedChanges(hasChanges);
   }, [activePalette, isDarkMode, initialPalette, username, selectedVoice, initialVoiceURI, speechRate, initialSpeechRate, speechPitch, initialSpeechPitch, selectedLanguage, initialLanguage]);
   
@@ -456,10 +488,37 @@ const Settings: React.FC = () => {
   };
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const voiceURI = e.target.value;
-    const voice = voices.find(v => v.voiceURI === voiceURI) || null;
-    setSelectedVoice(voice);
-    // Don't update options immediately, wait for save button
+    try {
+      const voiceURI = e.target.value;
+      console.log('Selected voice URI:', voiceURI);
+      
+      // If empty selection, set to null
+      if (!voiceURI) {
+        setSelectedVoice(null);
+        return;
+      }
+      
+      const voice = voices.find(v => v.voiceURI === voiceURI) || null;
+      
+      if (voice) {
+        console.log('Found matching voice:', voice.name);
+        setSelectedVoice(voice);
+        
+        // Force a check for unsaved changes
+        const currentVoiceURI = voice.voiceURI;
+        const hasVoiceChanged = currentVoiceURI !== initialVoiceURI;
+        console.log('Voice changed?', hasVoiceChanged, 'Current:', currentVoiceURI, 'Initial:', initialVoiceURI);
+        
+        if (hasVoiceChanged) {
+          // Speak a test phrase to confirm voice works
+          speak('This is a test of the selected voice.', { voice });
+        }
+      } else {
+        console.error('Could not find voice with URI:', voiceURI);
+      }
+    } catch (error) {
+      console.error('Error changing voice:', error);
+    }
   };
 
   const handleSpeechRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -622,28 +681,41 @@ const Settings: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Voice
               </label>
-              <select 
-                className="input"
-                value={selectedVoice?.voiceURI || ''}
-                onChange={handleVoiceChange}
-              >
-                {availableVoices.map(voice => (
-                  <option key={voice.voiceURI} value={voice.voiceURI}>
-                    {voice.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-secondary mt-2 ml-2"
-                onClick={() => {
-                  if (selectedVoice) {
-                    speak('This is a test of the selected voice.', { rate: speechRate, pitch: speechPitch, voice: selectedVoice });
-                  }
-                }}
-              >
-                Test
-              </button>
+              <div className="flex flex-col space-y-2">
+                <select 
+                  className="input w-full"
+                  value={selectedVoice?.voiceURI || ''}
+                  onChange={handleVoiceChange}
+                >
+                  <option value="">Select a voice</option>
+                  {availableVoices.length > 0 ? (
+                    availableVoices.map(voice => (
+                      <option key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name} ({voice.lang})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>No voices available</option>
+                  )}
+                </select>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">
+                    {availableVoices.length} voices available
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary py-1 px-3 text-sm"
+                    onClick={() => {
+                      if (selectedVoice) {
+                        speak('This is a test of the selected voice.', { rate: speechRate, pitch: speechPitch, voice: selectedVoice });
+                      }
+                    }}
+                    disabled={!selectedVoice}
+                  >
+                    Test Voice
+                  </button>
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

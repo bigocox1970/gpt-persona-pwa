@@ -29,33 +29,64 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   });
 
   useEffect(() => {
+    if (!window.speechSynthesis) {
+      console.error('Speech synthesis not supported in this browser');
+      return;
+    }
+    
     const synth = window.speechSynthesis;
     
     const loadVoices = () => {
-      const availableVoices = synth.getVoices();
-      setVoices(availableVoices);
-      
-      if (!options.voice && availableVoices.length > 0) {
-        const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
-        if (savedSettings) {
-          const parsed = JSON.parse(savedSettings);
-          if (parsed.voiceURI) {
-            const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
-            if (savedVoice) {
-              setOptions(prev => ({ ...prev, voice: savedVoice }));
+      try {
+        // Force Chrome to load voices
+        if (synth.getVoices().length === 0) {
+          console.log('No voices available yet, waiting...');
+        }
+        
+        const availableVoices = synth.getVoices();
+        console.log('Loaded voices:', availableVoices.length);
+        setVoices(availableVoices);
+        
+        if (!options.voice && availableVoices.length > 0) {
+          const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+          if (savedSettings) {
+            try {
+              const parsed = JSON.parse(savedSettings);
+              if (parsed.voiceURI) {
+                const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
+                if (savedVoice) {
+                  console.log('Found saved voice:', savedVoice.name);
+                  setOptions(prev => ({ ...prev, voice: savedVoice }));
+                } else {
+                  console.log('Saved voice not found, using default');
+                  // If saved voice not found, use default
+                  const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0];
+                  setOptions(prev => ({ ...prev, voice: defaultVoice }));
+                }
+              }
+            } catch (e) {
+              console.error('Error parsing saved TTS settings:', e);
             }
           }
         }
+      } catch (e) {
+        console.error('Error loading voices:', e);
       }
     };
 
+    // Initial load
     loadVoices();
     
+    // Set up event listener for voices loaded
     if (speechSynthesis.onvoiceschanged !== undefined) {
       speechSynthesis.onvoiceschanged = loadVoices;
     }
 
+    // Try again after a short delay (helps on some browsers)
+    const retryTimer = setTimeout(loadVoices, 1000);
+
     return () => {
+      clearTimeout(retryTimer);
       synth.cancel();
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = null;
