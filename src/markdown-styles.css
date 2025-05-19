@@ -5,7 +5,7 @@
   line-height: 1.5;
   overflow-wrap: break-word;
   word-break: break-word;
-  --persona-accent: inherit; /* Default value, will be overridden by inline style */
+  white-space: pre-wrap;
   color: inherit; /* Inherit text color from parent (chat bubble) */
 }
 

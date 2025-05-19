@@ -1,7 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import '../../markdown-styles.css';
 
 interface Message {
@@ -48,9 +46,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             message.text
           ) : (
             <div className="markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.text}
-              </ReactMarkdown>
+              {message.text}
             </div>
           )}
         </div>
