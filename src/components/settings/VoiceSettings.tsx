@@ -174,22 +174,6 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
         <div className="mt-2 text-xs text-gray-500">
           <p>Selected Voice: {selectedVoice?.name || 'None'} ({selectedVoice?.lang || 'None'})</p>
           <p>Rate: {speechRate} | Pitch: {speechPitch}</p>
-          
-          {/* Emergency fix for production */}
-          <button 
-            onClick={() => {
-              console.log('[EMERGENCY FIX] Forcing voice change callback');
-              if (selectedVoice) {
-                onVoiceChange(null);
-                setTimeout(() => {
-                  onVoiceChange(selectedVoice);
-                }, 100);
-              }
-            }}
-            className="mt-2 px-2 py-1 bg-red-100 text-red-800 rounded text-xs"
-          >
-            Force Save Button Activation
-          </button>
         </div>
       </div>
     </div>

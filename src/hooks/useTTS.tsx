@@ -95,6 +95,29 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     };
   }, []);
 
+  // Helper function to normalize speech rate based on voice
+  const normalizeRate = useCallback((rate: number, voice: SpeechSynthesisVoice | null): number => {
+    if (!voice) return rate;
+    
+    // Some voices are naturally faster or slower than others
+    // Adjust rate based on voice characteristics
+    const voiceName = voice.name.toLowerCase();
+    
+    // Slow down voices that tend to be too fast
+    if (voiceName.includes('microsoft') && voiceName.includes('neural')) {
+      // Microsoft Neural voices tend to be faster
+      return rate * 0.85;
+    }
+    
+    // Speed up voices that tend to be too slow
+    if (voiceName.includes('google')) {
+      // Google voices tend to be slower
+      return rate * 1.1;
+    }
+    
+    return rate;
+  }, []);
+
   const speak = useCallback((text: string, customOptions?: TTSOptions) => {
     if (!window.speechSynthesis) {
       console.error('Speech synthesis not supported in this browser');
@@ -107,18 +130,25 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     const utterance = new SpeechSynthesisUtterance(text);
     
     const currentOptions = { ...options, ...customOptions };
-    utterance.rate = currentOptions.rate || 1;
-    utterance.pitch = currentOptions.pitch || 1;
+    
+    // Apply voice first so we can normalize rate based on voice
     if (currentOptions.voice) {
       utterance.voice = currentOptions.voice;
     }
+    
+    // Normalize rate based on selected voice
+    const normalizedRate = normalizeRate(currentOptions.rate || 1, utterance.voice);
+    console.log(`Speech rate: original=${currentOptions.rate}, normalized=${normalizedRate} for voice ${utterance.voice?.name || 'default'}`);
+    
+    utterance.rate = normalizedRate;
+    utterance.pitch = currentOptions.pitch || 1;
 
     utterance.onstart = () => setSpeaking(true);
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
 
     synth.speak(utterance);
-  }, [options]);
+  }, [options, normalizeRate]);
 
   const stop = useCallback(() => {
     if (!window.speechSynthesis) return;
