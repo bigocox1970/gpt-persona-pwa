@@ -156,7 +156,7 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, toggleDarkMode } = useTheme();
-  const { user, logout, updatePassword } = useAuth();
+  const { user, logout, updatePassword, updateUserProfile, saveUserSettings, getUserSettings } = useAuth();
   const { voices, options, updateOptions, speak } = useTTS();
   const { updateOptions: updateSTTOptions } = useSTT();
   
@@ -176,6 +176,12 @@ const Settings: React.FC = () => {
   const [username, setUsername] = useState(() => {
     return localStorage.getItem('user_display_name') || '';
   });
+  
+  // Track initial TTS settings for change detection
+  const [initialVoiceURI, setInitialVoiceURI] = useState<string | null>(null);
+  const [initialSpeechRate, setInitialSpeechRate] = useState<number>(1);
+  const [initialSpeechPitch, setInitialSpeechPitch] = useState<number>(1);
+  const [initialLanguage, setInitialLanguage] = useState<string>('en-US');
 
   const [activePalette, setActivePalette] = useState(0);
   const [initialPalette, setInitialPalette] = useState(0);
@@ -188,23 +194,86 @@ const Settings: React.FC = () => {
     voice.lang.startsWith('en') && voice.localService
   );
 
+  // Load initial TTS settings
   useEffect(() => {
-    if (availableVoices.length > 0 && !selectedVoice) {
-      const defaultVoice = availableVoices.find(voice => voice.default) || availableVoices[0];
-      setSelectedVoice(defaultVoice);
-      updateOptions({ voice: defaultVoice });
+    if (availableVoices.length > 0) {
+      // Try to find the voice from Supabase settings first
+      const userSettings = getUserSettings();
+      const voiceURI = userSettings?.tts?.voiceURI;
+      if (voiceURI) {
+        const savedVoice = availableVoices.find(v => v.voiceURI === voiceURI);
+        if (savedVoice) {
+          setSelectedVoice(savedVoice);
+          setInitialVoiceURI(savedVoice.voiceURI);
+          return;
+        }
+      }
+      
+      // If no voice from Supabase, check local options
+      if (options.voice) {
+        setSelectedVoice(options.voice);
+        setInitialVoiceURI(options.voice.voiceURI);
+      } else {
+        // Otherwise set a default voice
+        const defaultVoice = availableVoices.find(voice => voice.default) || availableVoices[0];
+        setSelectedVoice(defaultVoice);
+        updateOptions({ voice: defaultVoice });
+        setInitialVoiceURI(defaultVoice.voiceURI);
+      }
     }
-  }, [availableVoices]);
+  }, [availableVoices, options, getUserSettings]);
 
-  // Load saved palette on mount
+  // Load settings from Supabase and localStorage
   useEffect(() => {
-    const savedPalette = localStorage.getItem('activePalette');
-    if (savedPalette) {
-      const paletteIndex = parseInt(savedPalette, 10);
-      setActivePalette(paletteIndex);
-      setInitialPalette(paletteIndex);
+    // First try to load from Supabase if user is logged in
+    const userSettings = getUserSettings();
+    
+    if (userSettings) {
+      // Load theme settings
+      if (userSettings.theme) {
+        if (userSettings.theme.activePalette !== undefined) {
+          setActivePalette(userSettings.theme.activePalette);
+          setInitialPalette(userSettings.theme.activePalette);
+          // Apply the saved palette immediately
+          applyPalette(PALETTE_PRESETS[userSettings.theme.activePalette][isDarkMode ? 'dark' : 'light']);
+        }
+      }
+      
+      // Load TTS settings
+      if (userSettings.tts) {
+        if (userSettings.tts.rate !== undefined) {
+          setSpeechRate(userSettings.tts.rate);
+          setInitialSpeechRate(userSettings.tts.rate);
+        }
+        
+        if (userSettings.tts.pitch !== undefined) {
+          setSpeechPitch(userSettings.tts.pitch);
+          setInitialSpeechPitch(userSettings.tts.pitch);
+        }
+        
+        // Voice will be set after voices are loaded
+        if (userSettings.tts.voiceURI) {
+          setInitialVoiceURI(userSettings.tts.voiceURI);
+        }
+      }
+      
+      // Load STT settings
+      if (userSettings.stt && userSettings.stt.language) {
+        setSelectedLanguage(userSettings.stt.language);
+        setInitialLanguage(userSettings.stt.language);
+      }
+    } else {
+      // Fall back to localStorage if no Supabase settings
+      const savedPalette = localStorage.getItem('activePalette');
+      if (savedPalette) {
+        const paletteIndex = parseInt(savedPalette, 10);
+        setActivePalette(paletteIndex);
+        setInitialPalette(paletteIndex);
+        // Apply the saved palette immediately
+        applyPalette(PALETTE_PRESETS[paletteIndex][isDarkMode ? 'dark' : 'light']);
+      }
     }
-  }, []);
+  }, [isDarkMode, getUserSettings]);
 
   // Apply palette when it changes
   useEffect(() => {
@@ -212,8 +281,22 @@ const Settings: React.FC = () => {
     applyPalette(PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light']);
     
     // Check if we have unsaved changes
-    setHasUnsavedChanges(activePalette !== initialPalette);
-  }, [activePalette, isDarkMode, initialPalette]);
+    const hasChanges = 
+      // Color theme changes
+      activePalette !== initialPalette || 
+      // Username changes
+      (username !== (localStorage.getItem('user_display_name') || '')) ||
+      // TTS voice changes
+      (selectedVoice && initialVoiceURI && selectedVoice.voiceURI !== initialVoiceURI) ||
+      // TTS rate changes
+      speechRate !== initialSpeechRate ||
+      // TTS pitch changes
+      speechPitch !== initialSpeechPitch ||
+      // STT language changes
+      selectedLanguage !== initialLanguage;
+      
+    setHasUnsavedChanges(hasChanges);
+  }, [activePalette, isDarkMode, initialPalette, username, selectedVoice, initialVoiceURI, speechRate, initialSpeechRate, speechPitch, initialSpeechPitch, selectedLanguage, initialLanguage]);
   
   // Handle navigation away with unsaved changes
   useEffect(() => {
@@ -261,12 +344,64 @@ const Settings: React.FC = () => {
   };
 
   // Save settings
-  const saveSettings = useCallback(() => {
+  const saveSettings = useCallback(async () => {
+    // First save to localStorage as fallback
     localStorage.setItem('activePalette', String(activePalette));
     localStorage.setItem('user_display_name', username);
-    setInitialPalette(activePalette);
-    setHasUnsavedChanges(false);
-  }, [activePalette, username]);
+    
+    // Save TTS settings to localStorage
+    if (selectedVoice) {
+      updateOptions({
+        voice: selectedVoice,
+        rate: speechRate,
+        pitch: speechPitch
+      });
+    }
+    
+    // Save STT settings to localStorage
+    updateSTTOptions({ language: selectedLanguage });
+    localStorage.setItem('stt_settings', JSON.stringify({ language: selectedLanguage }));
+    
+    // Save all settings to Supabase
+    try {
+      // Create settings object
+      const settings = {
+        theme: {
+          activePalette: activePalette,
+          isDarkMode: isDarkMode
+        },
+        tts: {
+          voiceURI: selectedVoice?.voiceURI,
+          rate: speechRate,
+          pitch: speechPitch
+        },
+        stt: {
+          language: selectedLanguage
+        }
+      };
+      
+      // Save to Supabase
+      await saveUserSettings(settings);
+      
+      // Save username separately to ensure it's updated
+      if (username) {
+        await updateUserProfile(username);
+      }
+      
+      // Update local state to track initial values
+      setInitialPalette(activePalette);
+      setInitialVoiceURI(selectedVoice?.voiceURI || null);
+      setInitialSpeechRate(speechRate);
+      setInitialSpeechPitch(speechPitch);
+      setInitialLanguage(selectedLanguage);
+      
+      // Reset unsaved changes flag
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Failed to save settings to database:', error);
+      alert('There was an error saving your settings to the cloud. Your settings are saved locally but may not sync across devices.');
+    }
+  }, [activePalette, username, isDarkMode, selectedVoice, speechRate, speechPitch, selectedLanguage, updateOptions, updateSTTOptions, saveUserSettings, updateUserProfile]);
 
   // Handle navigation
   const handleNavigation = useCallback((path: string) => {
@@ -324,25 +459,25 @@ const Settings: React.FC = () => {
     const voiceURI = e.target.value;
     const voice = voices.find(v => v.voiceURI === voiceURI) || null;
     setSelectedVoice(voice);
-    updateOptions({ voice });
+    // Don't update options immediately, wait for save button
   };
 
   const handleSpeechRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rate = parseFloat(e.target.value);
     setSpeechRate(rate);
-    updateOptions({ rate });
+    // Don't update options immediately, wait for save button
   };
 
   const handleSpeechPitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const pitch = parseFloat(e.target.value);
     setSpeechPitch(pitch);
-    updateOptions({ pitch });
+    // Don't update options immediately, wait for save button
   };
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const language = e.target.value;
     setSelectedLanguage(language);
-    updateSTTOptions({ language });
+    // Don't update options immediately, wait for save button
   };
 
   return (
@@ -657,17 +792,16 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Save Button */}
-        {hasUnsavedChanges && (
-          <div className="mt-6">
-            <button
-              onClick={saveSettings}
-              className="w-full flex items-center justify-center space-x-2 bg-[var(--primary-color)] text-white font-medium rounded-lg py-3 hover:opacity-90 transition-colors"
-            >
-              <Save size={18} />
-              <span>Save Changes</span>
-            </button>
-          </div>
-        )}
+        <div className="mt-6">
+          <button
+            onClick={saveSettings}
+            className={`w-full flex items-center justify-center space-x-2 ${hasUnsavedChanges ? 'bg-[var(--primary-color)] text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'} font-medium rounded-lg py-3 hover:opacity-90 transition-colors`}
+            disabled={!hasUnsavedChanges}
+          >
+            <Save size={18} />
+            <span>{hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'}</span>
+          </button>
+        </div>
 
         {/* Logout Button */}
         <div className="mt-4">

@@ -5,6 +5,22 @@ interface User {
   id: string;
   email: string;
   name?: string;
+  settings?: UserSettings;
+}
+
+interface UserSettings {
+  theme?: {
+    activePalette?: number;
+    isDarkMode?: boolean;
+  };
+  tts?: {
+    voiceURI?: string;
+    rate?: number;
+    pitch?: number;
+  };
+  stt?: {
+    language?: string;
+  };
 }
 
 interface AuthContextType {
@@ -15,6 +31,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateUserProfile: (name: string) => Promise<void>;
+  saveUserSettings: (settings: UserSettings) => Promise<void>;
+  getUserSettings: () => UserSettings | undefined;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +44,9 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   register: async () => {},
   updatePassword: async () => {},
+  updateUserProfile: async () => {},
+  saveUserSettings: async () => {},
+  getUserSettings: () => undefined,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -35,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check current auth status
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setUser({
           id: session.user.id,
@@ -102,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updatePassword = async (currentPassword: string, newPassword: string) => {
+  const updatePassword = async (_currentPassword: string, newPassword: string) => {
     try {
       const { error } = await supabase.auth.updateUser({
         password: newPassword
@@ -117,6 +139,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserProfile = async (name: string) => {
+    try {
+      // Keep existing settings when updating name
+      const currentData = user?.settings || {};
+      
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          name,
+          settings: currentData
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          name
+        });
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
+  };
+  
+  const saveUserSettings = async (settings: UserSettings) => {
+    try {
+      // Preserve the user's name when updating settings
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          name: user?.name,
+          settings
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          settings
+        });
+      }
+    } catch (error) {
+      console.error('Settings update error:', error);
+      throw error;
+    }
+  };
+  
+  const getUserSettings = (): UserSettings | undefined => {
+    return user?.settings;
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
@@ -125,6 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     register,
     updatePassword,
+    updateUserProfile,
+    saveUserSettings,
+    getUserSettings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
