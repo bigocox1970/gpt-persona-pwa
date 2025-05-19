@@ -99,6 +99,11 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   const normalizeRate = useCallback((rate: number, voice: SpeechSynthesisVoice | null): number => {
     if (!voice) return rate;
     
+    // Return the rate as is without any adjustments
+    // This fixes the issue with voices being sped up
+    return rate;
+    
+    /* Removed voice-specific adjustments as they were causing issues
     // Some voices are naturally faster or slower than others
     // Adjust rate based on voice characteristics
     const voiceName = voice.name.toLowerCase();
@@ -116,6 +121,7 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     }
     
     return rate;
+    */
   }, []);
 
   const speak = useCallback((text: string, customOptions?: TTSOptions) => {
