@@ -426,6 +426,16 @@ const SettingsManager: React.FC = () => {
           <span>{hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'}</span>
         </button>
         
+        {/* Emergency Save Button - Always Enabled */}
+        <button
+          onClick={saveSettings}
+          className="w-full mt-2 flex items-center justify-center space-x-2 bg-red-500 text-white font-medium rounded-lg py-3 hover:bg-red-600 transition-colors"
+          id="emergency-save-button"
+        >
+          <Save size={18} />
+          <span>Emergency Save (Always Enabled)</span>
+        </button>
+        
         {/* Debug info */}
         <div className="mt-2 text-xs text-gray-500">
           <p>Voice: {selectedVoice?.name || 'None'} ({selectedVoice?.lang || 'None'})</p>
