@@ -122,6 +122,11 @@ html, body {
   --persona-bg: #443627;
 }
 
+.persona-gpt-classic {
+  --persona-color: #EFDCAB;
+  --persona-bg: #443627;
+}
+
 /* Chat bubbles */
 .chat-bubble {
   @apply px-4 py-2 rounded-2xl break-words w-fit;
