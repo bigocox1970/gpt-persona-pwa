@@ -47,26 +47,27 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         console.log('Loaded voices:', availableVoices.length);
         setVoices(availableVoices);
         
-        if (!options.voice && availableVoices.length > 0) {
-          const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
-          if (savedSettings) {
-            try {
-              const parsed = JSON.parse(savedSettings);
-              if (parsed.voiceURI) {
-                const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
-                if (savedVoice) {
-                  console.log('Found saved voice:', savedVoice.name);
-                  setOptions(prev => ({ ...prev, voice: savedVoice }));
-                } else {
-                  console.log('Saved voice not found, using default');
-                  // If saved voice not found, use default
-                  const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0];
-                  setOptions(prev => ({ ...prev, voice: defaultVoice }));
-                }
+        // Always try to load the saved voice when voices are available
+        const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+        if (savedSettings && availableVoices.length > 0) {
+          try {
+            const parsed = JSON.parse(savedSettings);
+            console.log('Parsed saved settings:', parsed);
+            
+            if (parsed.voiceURI) {
+              const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
+              if (savedVoice) {
+                console.log('Found saved voice:', savedVoice.name);
+                setOptions(prev => ({ ...prev, voice: savedVoice }));
+              } else {
+                console.log('Saved voice not found, using default');
+                // If saved voice not found, use default
+                const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0];
+                setOptions(prev => ({ ...prev, voice: defaultVoice }));
               }
-            } catch (e) {
-              console.error('Error parsing saved TTS settings:', e);
             }
+          } catch (e) {
+            console.error('Error parsing saved TTS settings:', e);
           }
         }
       } catch (e) {
@@ -128,10 +129,17 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   const updateOptions = useCallback((newOptions: Partial<TTSOptions>) => {
     setOptions(prev => {
       const updated = { ...prev, ...newOptions };
-      localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify({
-        ...updated,
-        voiceURI: updated.voice?.voiceURI
-      }));
+      
+      // Save to localStorage with explicit voiceURI
+      const saveData = {
+        rate: updated.rate,
+        pitch: updated.pitch,
+        voiceURI: updated.voice?.voiceURI || null
+      };
+      
+      console.log('Saving TTS settings to localStorage:', saveData);
+      localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
+      
       return updated;
     });
   }, []);
