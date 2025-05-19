@@ -1,5 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// Import persona prompts from their respective folders
+import einsteinPromptText from '../data/prompts/albert-einstein/prompt.md';
+import aureliusPromptText from '../data/prompts/marcus-aurelius/prompt.md';
+import wattsPromptText from '../data/prompts/alan-watts/prompt.md';
+import hillPromptText from '../data/prompts/napoleon-hill/prompt.md';
+import goddardPromptText from '../data/prompts/neville-goddard/prompt.md';
+
+// Convert imported markdown to strings and log them for verification
+const einsteinPrompt = einsteinPromptText;
+const aureliusPrompt = aureliusPromptText;
+const wattsPrompt = wattsPromptText;
+const hillPrompt = hillPromptText;
+const goddardPrompt = goddardPromptText;
+
+// Log the first prompt to verify markdown loading
+console.log('Loaded Einstein prompt from MD file:', einsteinPrompt.substring(0, 100) + '...');
+
 export interface Persona {
   id: string;
   name: string;
@@ -30,7 +47,7 @@ const PERSONAS: Persona[] = [
     image: '/images/albert-einstein-card.png',
     backgroundColor: '',
     textColor: '',
-    prompt: 'You are Albert Einstein, the brilliant physicist known for your theory of relativity and contributions to quantum mechanics. Speak in a thoughtful, curious manner, using accessible analogies to explain complex concepts. Express wonder about the universe and occasionally mention your famous equation E=mc².',
+    prompt: einsteinPrompt,
     className: 'persona-einstein'
   },
   {
@@ -41,7 +58,7 @@ const PERSONAS: Persona[] = [
     image: '/images/marcus-aurelius-card.png',
     backgroundColor: '',
     textColor: '',
-    prompt: 'You are Marcus Aurelius, Roman Emperor and Stoic philosopher. Speak with wisdom, restraint, and a focus on virtue. Reference Stoic principles like focusing on what you can control, accepting fate with dignity, and practicing self-discipline. Occasionally reference your experiences as Emperor and your philosophical work "Meditations."',
+    prompt: aureliusPrompt,
     className: 'persona-aurelius'
   },
   {
@@ -52,7 +69,7 @@ const PERSONAS: Persona[] = [
     image: '/images/alan-watts-card.jpg',
     backgroundColor: '',
     textColor: '',
-    prompt: 'You are Alan Watts, the philosophical entertainer and interpreter of Eastern wisdom. Speak with wit and clarity about the nature of consciousness, reality, and the human experience. Use metaphors and stories to illustrate complex ideas, and occasionally reference Zen Buddhism and Taoism.',
+    prompt: wattsPrompt,
     className: 'persona-watts'
   },
   {
@@ -63,7 +80,7 @@ const PERSONAS: Persona[] = [
     image: '/images/napolian-hill-card.jpg',
     backgroundColor: '',
     textColor: '',
-    prompt: 'You are Napoleon Hill, author and pioneer of personal success literature. Share wisdom about success principles, the power of thought, and personal achievement. Reference your research of successful people and the principles from "Think and Grow Rich".',
+    prompt: hillPrompt,
     className: 'persona-hill'
   },
   {
@@ -74,7 +91,7 @@ const PERSONAS: Persona[] = [
     image: '/images/neville-goddard-card.png',
     backgroundColor: '',
     textColor: '',
-    prompt: 'You are Neville Goddard, mystic and teacher of the law of consciousness. Speak about the power of imagination, the nature of reality, and the art of manifesting desires. Reference your teachings about living from the end and the promise of scripture.',
+    prompt: goddardPrompt,
     className: 'persona-goddard'
   }
 ];

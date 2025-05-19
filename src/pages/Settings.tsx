@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Moon, Sun, LogOut, Lock, User, Volume2, Mic, Droplet } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Moon, Sun, LogOut, Lock, User, Volume2, Mic, Droplet, Save } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTTS } from '../hooks/useTTS';
@@ -152,6 +153,8 @@ function applyPalette(colors: {[key: string]: string}) {
 }
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { user, logout, updatePassword } = useAuth();
   const { voices, options, updateOptions, speak } = useTTS();
@@ -168,8 +171,17 @@ const Settings: React.FC = () => {
   const [speechPitch, setSpeechPitch] = useState(options.pitch || 1);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(options.voice || null);
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
+  
+  // Username for personalization
+  const [username, setUsername] = useState(() => {
+    return localStorage.getItem('user_display_name') || '';
+  });
 
   const [activePalette, setActivePalette] = useState(0);
+  const [initialPalette, setInitialPalette] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // Filter voices to only show English voices by default
   const availableVoices = voices.filter(voice => 
@@ -184,11 +196,39 @@ const Settings: React.FC = () => {
     }
   }, [availableVoices]);
 
+  // Load saved palette on mount
   useEffect(() => {
-    // On mount or mode change, apply the active palette for the current mode
+    const savedPalette = localStorage.getItem('activePalette');
+    if (savedPalette) {
+      const paletteIndex = parseInt(savedPalette, 10);
+      setActivePalette(paletteIndex);
+      setInitialPalette(paletteIndex);
+    }
+  }, []);
+
+  // Apply palette when it changes
+  useEffect(() => {
+    // Apply the active palette for the current mode
     applyPalette(PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light']);
-    localStorage.setItem('activePalette', String(activePalette));
-  }, [activePalette, isDarkMode]);
+    
+    // Check if we have unsaved changes
+    setHasUnsavedChanges(activePalette !== initialPalette);
+  }, [activePalette, isDarkMode, initialPalette]);
+  
+  // Handle navigation away with unsaved changes
+  useEffect(() => {
+    // Function to handle beforeunload event
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,7 +260,59 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Save settings
+  const saveSettings = useCallback(() => {
+    localStorage.setItem('activePalette', String(activePalette));
+    localStorage.setItem('user_display_name', username);
+    setInitialPalette(activePalette);
+    setHasUnsavedChanges(false);
+  }, [activePalette, username]);
+
+  // Handle navigation
+  const handleNavigation = useCallback((path: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(path);
+      setShowConfirmDialog(true);
+    } else {
+      navigate(path);
+    }
+  }, [hasUnsavedChanges, navigate]);
+
+  // Confirm navigation and discard changes
+  const confirmNavigation = useCallback(() => {
+    if (pendingNavigation) {
+      setShowConfirmDialog(false);
+      navigate(pendingNavigation);
+    }
+  }, [pendingNavigation, navigate]);
+
+  // Cancel navigation and stay on settings page
+  const cancelNavigation = useCallback(() => {
+    setShowConfirmDialog(false);
+    setPendingNavigation(null);
+  }, []);
+
+  // Override the default navigation behavior
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        setShowConfirmDialog(true);
+        setPendingNavigation(location.pathname);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [hasUnsavedChanges, location, handleNavigation]);
+
   const handleLogout = async () => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation('/login');
+      setShowConfirmDialog(true);
+      return;
+    }
+    
     try {
       await logout();
     } catch (error) {
@@ -256,6 +348,21 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)] p-4 pb-20">
       <div className="max-w-md mx-auto">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mb-4">
+          <button 
+            onClick={() => handleNavigation('/chat')}
+            className="text-[var(--primary-color)] font-medium"
+          >
+            &larr; Back to Chat
+          </button>
+          <button 
+            onClick={() => handleNavigation('/admin/personas')}
+            className="text-[var(--primary-color)] font-medium"
+          >
+            Personas
+          </button>
+        </div>
 
         {/* User Info */}
         <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
@@ -266,6 +373,23 @@ const Settings: React.FC = () => {
           <div className="pl-9">
             <p className="text-gray-700 dark:text-gray-300">{user?.name || 'User'}</p>
             <p className="text-gray-500 text-sm">{user?.email}</p>
+            
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Display Name (used by AI personas)
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setHasUnsavedChanges(true);
+                }}
+                placeholder="Enter your preferred name"
+                className="input text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">This name will be used by AI personas when addressing you</p>
+            </div>
             
             {!showPasswordForm ? (
               <button 
@@ -532,8 +656,21 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
+        {/* Save Button */}
+        {hasUnsavedChanges && (
+          <div className="mt-6">
+            <button
+              onClick={saveSettings}
+              className="w-full flex items-center justify-center space-x-2 bg-[var(--primary-color)] text-white font-medium rounded-lg py-3 hover:opacity-90 transition-colors"
+            >
+              <Save size={18} />
+              <span>Save Changes</span>
+            </button>
+          </div>
+        )}
+
         {/* Logout Button */}
-        <div className="mt-8">
+        <div className="mt-4">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center space-x-2 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-medium rounded-lg py-3 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
@@ -543,6 +680,39 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold mb-4">Unsaved Changes</h3>
+            <p className="mb-6">You have unsaved changes. Do you want to save your settings before leaving?</p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  saveSettings();
+                  confirmNavigation();
+                }}
+                className="flex-1 btn btn-primary"
+              >
+                Yes, Save
+              </button>
+              <button
+                onClick={confirmNavigation}
+                className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                No, Discard
+              </button>
+              <button
+                onClick={cancelNavigation}
+                className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

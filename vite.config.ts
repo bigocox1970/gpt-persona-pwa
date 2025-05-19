@@ -1,10 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { Plugin } from 'vite';
+
+// Custom plugin to handle markdown files
+function markdownPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-markdown',
+    transform(code, id) {
+      if (id.endsWith('.md')) {
+        // Simply export the content as a string
+        return `export default ${JSON.stringify(code)};`;
+      }
+    }
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    markdownPlugin(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

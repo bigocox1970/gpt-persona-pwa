@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import MessageBubble from './MessageBubble';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+// Import the Persona type from our new system
+import { Persona as NewPersona } from '../../personas/types';
 
 interface Message {
   id: string;
@@ -258,9 +260,31 @@ const ChatInterface: React.FC = () => {
             timestamp: new Date(userMessage.created_at)
           }
         ];
-        const systemPrompt = selectedPersona && selectedPersona.prompt
-          ? selectedPersona.prompt
-          : `You are ${selectedPersona.name}, answer as this persona.`;
+        // Get username from localStorage if available
+        const username = localStorage.getItem('user_display_name') || '';
+        
+        // Check if this is a new persona with the knowledge module system
+        let systemPrompt = '';
+        
+        // Check if selectedPersona might be a new persona type with generatePrompt
+        if (selectedPersona && typeof (selectedPersona as any).generatePrompt === 'function') {
+          // It's a new persona with the knowledge module system
+          systemPrompt = (selectedPersona as unknown as NewPersona).generatePrompt(userMessageText);
+        } else if (selectedPersona && selectedPersona.prompt) {
+          // It's an old persona with just a prompt string
+          systemPrompt = selectedPersona.prompt;
+          // Add username information if available
+          if (username) {
+            systemPrompt = `The user's name is ${username}. Address them by name when appropriate. \n\n${systemPrompt}`;
+          }
+        } else if (selectedPersona) {
+          // Fallback for any persona
+          systemPrompt = `You are ${selectedPersona.name}, answer as this persona.`;
+          // Add username information if available
+          if (username) {
+            systemPrompt = `The user's name is ${username}. Address them by name when appropriate. \n\n${systemPrompt}`;
+          }
+        }
         const openaiMessages = chatHistory.map(msg => ({
           role: msg.sender === 'user' ? 'user' : 'assistant',
           content: msg.text

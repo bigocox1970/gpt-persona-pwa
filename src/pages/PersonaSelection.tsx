@@ -29,7 +29,7 @@ const WelcomeCard: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
        style={{ backgroundImage: `url(/images/GPT-pasona-splash.png)` }}>
     <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70 z-10" />
     <div className="relative z-20 p-8 pt-10">
-      <h2 className="text-4xl font-bold text-white mb-2 text-center">AI with Attitude</h2>
+      <h2 className="text-4xl font-bold text-white mb-2 text-center">AI with Personality</h2>
     </div>
     <div className="relative z-20 p-8 pb-10">
       <p className="text-white/90 text-lg mb-3">Engage with some of the greatest minds in history</p>
