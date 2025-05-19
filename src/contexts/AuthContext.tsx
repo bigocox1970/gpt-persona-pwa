@@ -14,7 +14,10 @@ interface UserSettings {
     isDarkMode?: boolean;
   };
   tts?: {
-    voiceURI?: string;
+    // Store voice preferences instead of exact URI
+    voiceLanguage?: string;  // e.g., 'en-US', 'en-GB'
+    voiceName?: string;      // Name of the voice for matching
+    voiceGender?: string;    // 'male' or 'female' if available
     rate?: number;
     pitch?: number;
   };
@@ -69,7 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isDarkMode: metadata.theme_dark_mode
           },
           tts: {
-            voiceURI: metadata.tts_voice_uri,
+            voiceLanguage: metadata.tts_voice_language,
+            voiceName: metadata.tts_voice_name,
+            voiceGender: metadata.tts_voice_gender,
             rate: metadata.tts_rate,
             pitch: metadata.tts_pitch
           },
@@ -204,7 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: user.name,
         theme_palette: settings.theme?.activePalette,
         theme_dark_mode: settings.theme?.isDarkMode,
-        tts_voice_uri: settings.tts?.voiceURI,
+        tts_voice_language: settings.tts?.voiceLanguage,
+        tts_voice_name: settings.tts?.voiceName,
+        tts_voice_gender: settings.tts?.voiceGender,
         tts_rate: settings.tts?.rate,
         tts_pitch: settings.tts?.pitch,
         stt_language: settings.stt?.language
