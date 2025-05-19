@@ -93,6 +93,17 @@ const PERSONAS: Persona[] = [
     textColor: '',
     prompt: goddardPrompt,
     className: 'persona-goddard'
+  },
+  {
+    id: 'e5f9d8c7-b6a5-4c3d-a2e1-f0b9d8c7a6b5',
+    name: 'GPT Classic (no persona)',
+    title: 'Standard AI Assistant (powered by ChatGPT)',
+    description: 'A classic, neutral AI assistant. No special persona, no extra context—just helpful and friendly.',
+    image: '/images/gpt-classic-card.jpg',
+    backgroundColor: '',
+    textColor: '',
+    prompt: 'You are a helpful AI assistant.',
+    className: 'persona-gpt-classic'
   }
 ];
 
