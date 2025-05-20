@@ -45,7 +45,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           {isUser ? (
             message.text
           ) : (
-            <div className="markdown-content" dangerouslySetInnerHTML={{ __html: message.text.replace(/\n/g, '<br>') }}>
+            <div className="markdown-content" dangerouslySetInnerHTML={{ __html: message.text ? message.text.replace(/\n/g, '<br>') : '' }}>
             </div>
           )}
         </div>

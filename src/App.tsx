@@ -14,10 +14,6 @@ import NotesPage from './tools/Notes/NotesPage';
 import TodosPage from './tools/Todos/TodosPage';
 import ToolsPage from './tools/ToolsPage';
 import ChatHistory from './pages/ChatHistory';
-import AdminDashboard from './admin/AdminDashboard';
-// import PersonaList from './admin/PersonaList';
-// import UserList from './admin/UserList';
-// import ApiCallList from './admin/ApiCallList';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -71,23 +67,14 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
         <Route 
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-              <div>Welcome to the Admin Dashboard. Please select a section.</div>
-            </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/"
+          path="/" 
           element={
             <ProtectedRoute>
               <Layout onToolsClick={handleToolsClick}>
                 <PersonaSelection />
               </Layout>
             </ProtectedRoute>
-          }
+          } 
         />
         <Route 
           path="/chat" 

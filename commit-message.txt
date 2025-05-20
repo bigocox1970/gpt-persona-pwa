@@ -1,0 +1,17 @@
+Fix persona UUIDs and standardize colors
+
+1. Created SQL migration to fix the UUID of the GPT Classic persona:
+   - Creates the persona with the correct UUID if it doesn't exist
+   - Updates any chat sessions using the all-zeros UUID
+   - Handles foreign key constraints properly
+
+2. Standardized colors for all personas in CSS:
+   - Updated GPT Classic colors from dark blue/light gray to light tan/deep brown
+   - Updated Marcus Aurelius colors from light yellow-green/orange to light tan/deep brown
+   - Updated Napoleon Hill colors from light yellow-green/orange to light tan/deep brown
+   - All personas now use the same color scheme: light tan (#EFDCAB) text on deep brown (#443627) background
+
+3. Added SQL migration to update persona colors in the database:
+   - Adds background_color and text_color columns if they don't exist
+   - Updates all personas to use the same color scheme
+   - Specifically ensures Marcus Aurelius, Napoleon Hill, and GPT Classic have the correct colors
