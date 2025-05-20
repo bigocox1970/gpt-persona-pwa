@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Declare global types for TypeScript
+declare global {
+  interface Window {
+    SpeechRecognition?: any;
+    webkitSpeechRecognition?: any;
+  }
+}
+
 interface STTOptions {
   language?: string;
   continuous?: boolean;
@@ -33,6 +41,8 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     recognitionInstance.lang = options.language || 'en-US';
     recognitionInstance.continuous = options.continuous || false;
     recognitionInstance.interimResults = options.interimResults || true;
+    
+    console.log('Speech recognition initialized with language:', recognitionInstance.lang);
 
     // Set up event handlers
     recognitionInstance.onstart = () => {

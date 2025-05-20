@@ -82,7 +82,7 @@ const ChatInterface: React.FC = () => {
       }
 
       try {
-        let sessionId = null;
+        let sessionId: string | null = null;
         let isTemporarySession = false;
         
         // Check if we have a specific chat session to load from history
@@ -378,7 +378,27 @@ const ChatInterface: React.FC = () => {
     if (isListening) {
       stopListening();
     } else {
-      startListening();
+      // Clear any previous transcripts
+      clearTranscripts();
+      setInputText('');
+      
+      // On mobile, we need to focus the input field to trigger the keyboard
+      // which often helps with permission prompts
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Focus the input field
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // Small delay to ensure focus happens before speech recognition starts
+          setTimeout(() => {
+            startListening();
+          }, 300);
+        } else {
+          startListening();
+        }
+      } else {
+        // On desktop, just start listening
+        startListening();
+      }
     }
   };
 
