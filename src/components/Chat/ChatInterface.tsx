@@ -424,9 +424,26 @@ const ChatInterface: React.FC = () => {
   }
 
   return (
-    <div className={`flex flex-col h-full ${selectedPersona.className} bg-[var(--background-primary)] dark:bg-[var(--background-primary)]`}>
+    <div 
+      className={`flex flex-col h-full ${selectedPersona.className} relative`}
+      style={{
+        backgroundImage: `url(${selectedPersona.image})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Semi-transparent overlay */}
+      <div 
+        className="absolute inset-0 z-0" 
+        style={{ 
+          backgroundColor: 'var(--background-primary)',
+          opacity: 0.85
+        }}
+      ></div>
+      
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
+      <div className="flex-1 overflow-y-auto px-4 py-2 z-10 relative">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <img 
@@ -469,7 +486,7 @@ const ChatInterface: React.FC = () => {
       </div>
       
       {/* Input area */}
-      <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-gray-200 dark:border-gray-700 p-4 relative z-10">
         <div className="flex items-center">
           <button 
             className={`p-2 rounded-full mr-2 ${isListening ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
