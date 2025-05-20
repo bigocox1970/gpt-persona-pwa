@@ -53,11 +53,15 @@ const SettingsManager: React.FC = () => {
   const [activePalette, setActivePalette] = useState<number>(0);
   const [initialPalette, setInitialPalette] = useState<number>(0);
   const [initialDarkMode, setInitialDarkMode] = useState<boolean>(false);
+  const [customColors, setCustomColors] = useState<{[key: string]: string}>({});
   
   // State for TTS
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(1);
   const [speechPitch, setSpeechPitch] = useState<number>(1);
+  const [openaiTTS, setOpenaiTTS] = useState<boolean>(false);
+  const [openaiVoice, setOpenaiVoice] = useState<"nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy">("nova");
+  const [openaiModel, setOpenaiModel] = useState<"tts-1" | "tts-1-hd">("tts-1");
   
   // State for STT
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
@@ -149,6 +153,22 @@ const SettingsManager: React.FC = () => {
             setSpeechPitch(userSettings.tts.pitch);
             updateOptions({ pitch: userSettings.tts.pitch });
           }
+          
+          // Load OpenAI TTS settings
+          if (typeof userSettings.tts.openaiTTS === 'boolean') {
+            setOpenaiTTS(userSettings.tts.openaiTTS);
+            updateOptions({ useOpenAI: userSettings.tts.openaiTTS });
+          }
+          
+          if (userSettings.tts.openaiVoice) {
+            setOpenaiVoice(userSettings.tts.openaiVoice);
+            updateOptions({ openaiVoice: userSettings.tts.openaiVoice });
+          }
+          
+          if (userSettings.tts.openaiModel) {
+            setOpenaiModel(userSettings.tts.openaiModel);
+            updateOptions({ openaiModel: userSettings.tts.openaiModel });
+          }
         }
         
         // Load STT settings
@@ -203,7 +223,10 @@ const SettingsManager: React.FC = () => {
       speechRate !== options.rate ||
       speechPitch !== options.pitch ||
       selectedLanguage !== initialLanguage ||
-      voiceChanged;
+      voiceChanged ||
+      openaiTTS !== options.useOpenAI ||
+      openaiVoice !== options.openaiVoice ||
+      openaiModel !== options.openaiModel;
     
     console.log('Change detection:', { 
       voiceChanged, 
@@ -225,7 +248,10 @@ const SettingsManager: React.FC = () => {
     isDarkMode, initialDarkMode,
     speechRate, speechPitch, options.rate, options.pitch,
     selectedLanguage, initialLanguage,
-    selectedVoice, options.voice
+    selectedVoice, options.voice,
+    openaiTTS, options.useOpenAI,
+    openaiVoice, options.openaiVoice,
+    openaiModel, options.openaiModel
   ]);
   
   // Handle beforeunload event
@@ -243,15 +269,7 @@ const SettingsManager: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [handleBeforeUnload]);
   
-  // Handle navigation
-  const handleNavigation = useCallback((path: string) => {
-    if (hasUnsavedChanges) {
-      setPendingNavigation(path);
-      setShowConfirmDialog(true);
-    } else {
-      navigate(path);
-    }
-  }, [hasUnsavedChanges, navigate]);
+  // This function was removed as it's not being used
   
   // Confirm navigation
   const confirmNavigation = useCallback(() => {
@@ -295,11 +313,28 @@ const SettingsManager: React.FC = () => {
       pitch: speechPitch
     });
     
-    updateOptions({
-      voice: selectedVoice,
-      rate: speechRate,
-      pitch: speechPitch
-    });
+    // Force a stop of any current speech before updating options
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // Update TTS options with a slight delay to ensure clean state
+    setTimeout(() => {
+      updateOptions({
+        voice: selectedVoice,
+        rate: speechRate,
+        pitch: speechPitch,
+        useOpenAI: openaiTTS,
+        openaiVoice: openaiVoice,
+        openaiModel: openaiModel
+      });
+      
+      console.log('TTS options updated with:', {
+        voice: selectedVoice?.name || 'None',
+        useOpenAI: openaiTTS,
+        openaiVoice: openaiVoice
+      });
+    }, 100);
     
     // Save STT settings to localStorage
     if (updateSTTOptions) {
@@ -313,14 +348,18 @@ const SettingsManager: React.FC = () => {
       const settings = {
         theme: {
           activePalette: activePalette,
-          isDarkMode: isDarkMode === undefined ? false : isDarkMode
+          isDarkMode: isDarkMode === undefined ? false : isDarkMode,
+          customColors: Object.keys(customColors).length > 0 ? customColors : undefined
         },
         tts: {
           voiceLanguage: selectedVoice?.lang,
           voiceName: selectedVoice?.name,
           voiceGender: selectedVoice?.name?.toLowerCase().includes('female') ? 'female' : 'male',
           rate: speechRate,
-          pitch: speechPitch
+          pitch: speechPitch,
+          openaiTTS: openaiTTS,
+          openaiVoice: openaiVoice,
+          openaiModel: openaiModel
         },
         stt: {
           language: selectedLanguage
@@ -353,7 +392,8 @@ const SettingsManager: React.FC = () => {
     activePalette, username, selectedVoice, 
     speechRate, speechPitch, selectedLanguage, 
     initialUsername, updateOptions, updateSTTOptions, 
-    saveUserSettings, updateUserProfile, isDarkMode
+    saveUserSettings, updateUserProfile, isDarkMode,
+    openaiTTS, openaiVoice, openaiModel, customColors
   ]);
   
   // Handle component changes
@@ -363,6 +403,11 @@ const SettingsManager: React.FC = () => {
   
   const handlePaletteChange = useCallback((palette: number) => {
     setActivePalette(palette);
+  }, []);
+  
+  const handleCustomColorsChange = useCallback((colors: {[key: string]: string}) => {
+    setCustomColors(colors);
+    setHasUnsavedChanges(true);
   }, []);
   
   const handleVoiceChange = useCallback((voice: SpeechSynthesisVoice | null) => {
@@ -375,6 +420,18 @@ const SettingsManager: React.FC = () => {
   
   const handlePitchChange = useCallback((pitch: number) => {
     setSpeechPitch(pitch);
+  }, []);
+  
+  const handleOpenAITTSChange = useCallback((enabled: boolean) => {
+    setOpenaiTTS(enabled);
+  }, []);
+  
+  const handleOpenAIVoiceChange = useCallback((voice: string) => {
+    setOpenaiVoice(voice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy");
+  }, []);
+  
+  const handleOpenAIModelChange = useCallback((model: string) => {
+    setOpenaiModel(model as "tts-1" | "tts-1-hd");
   }, []);
   
   const handleLanguageChange = useCallback((language: string) => {
@@ -396,6 +453,7 @@ const SettingsManager: React.FC = () => {
       <ThemeSettings
         initialPalette={activePalette}
         onPaletteChange={handlePaletteChange}
+        onCustomColorsChange={handleCustomColorsChange}
       />
       
       {/* Voice Settings */}
@@ -403,9 +461,15 @@ const SettingsManager: React.FC = () => {
         initialVoice={selectedVoice}
         initialRate={speechRate}
         initialPitch={speechPitch}
+        openaiTTS={openaiTTS}
+        openaiVoice={openaiVoice}
+        openaiModel={openaiModel}
         onVoiceChange={handleVoiceChange}
         onRateChange={handleRateChange}
         onPitchChange={handlePitchChange}
+        onOpenAITTSChange={handleOpenAITTSChange}
+        onOpenAIVoiceChange={handleOpenAIVoiceChange}
+        onOpenAIModelChange={handleOpenAIModelChange}
       />
       
       {/* Speech Settings */}
@@ -429,6 +493,7 @@ const SettingsManager: React.FC = () => {
         {/* Debug info */}
         <div className="mt-2 text-xs text-gray-500">
           <p>Voice: {selectedVoice?.name || 'None'} ({selectedVoice?.lang || 'None'})</p>
+          <p>OpenAI TTS: {openaiTTS ? 'Enabled' : 'Disabled'} - Voice: {openaiVoice} - Model: {openaiModel}</p>
           <p>Has Unsaved Changes: {hasUnsavedChanges ? 'Yes' : 'No'}</p>
         </div>
       </div>

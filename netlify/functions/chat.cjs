@@ -14,31 +14,69 @@ exports.handler = async function(event, context) {
   // Helper: parse multipart/form-data
   function parseFormData(event) {
     return new Promise((resolve, reject) => {
-      const busboy = new Busboy({ headers: event.headers });
-      const fields = {};
-      let fileBuffer = null;
-      let fileMime = null;
+      // Check if headers exist and are properly formatted
+      if (!event.headers) {
+        console.error('No headers in event');
+        return reject(new Error('No headers in event'));
+      }
+      
+      // Log headers for debugging
+      console.log('Headers:', JSON.stringify(event.headers));
+      
+      // Ensure content-type is properly set
+      const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
+      if (!contentType.includes('multipart/form-data')) {
+        console.error('Invalid content type:', contentType);
+        return reject(new Error('Invalid content type: ' + contentType));
+      }
+      
+      try {
+        const busboy = new Busboy({ headers: event.headers });
+        const fields = {};
+        let fileBuffer = null;
+        let fileMime = null;
 
-      busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
-        fileMime = mimetype;
-        const buffers = [];
-        file.on('data', (data) => buffers.push(data));
-        file.on('end', () => {
-          fileBuffer = Buffer.concat(buffers);
+        busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+          console.log('Processing file:', fieldname, filename, mimetype);
+          fileMime = mimetype;
+          const buffers = [];
+          file.on('data', (data) => buffers.push(data));
+          file.on('end', () => {
+            fileBuffer = Buffer.concat(buffers);
+            console.log('File processed, size:', fileBuffer.length);
+          });
         });
-      });
 
-      busboy.on('field', (fieldname, value) => {
-        fields[fieldname] = value;
-      });
+        busboy.on('field', (fieldname, value) => {
+          console.log('Field:', fieldname, value);
+          fields[fieldname] = value;
+        });
 
-      busboy.on('finish', () => {
-        resolve({ fields, fileBuffer, fileMime });
-      });
+        busboy.on('finish', () => {
+          console.log('Finished parsing form data');
+          resolve({ fields, fileBuffer, fileMime });
+        });
 
-      busboy.on('error', reject);
+        busboy.on('error', (err) => {
+          console.error('Busboy error:', err);
+          reject(err);
+        });
 
-      busboy.end(Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8'));
+        // Check if body exists and is properly formatted
+        if (!event.body) {
+          console.error('No body in event');
+          return reject(new Error('No body in event'));
+        }
+        
+        const body = event.isBase64Encoded 
+          ? Buffer.from(event.body, 'base64') 
+          : Buffer.from(event.body);
+          
+        busboy.end(body);
+      } catch (err) {
+        console.error('Error in parseFormData:', err);
+        reject(err);
+      }
     });
   }
 
@@ -104,7 +142,8 @@ exports.handler = async function(event, context) {
             id: Date.now().toString(),
             content: userText,
             sender: 'user',
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            image_url: imageUrl  // Include the image URL in the response
           },
           aiResponse
         })
@@ -144,6 +183,7 @@ exports.handler = async function(event, context) {
       return { statusCode: 200, body: JSON.stringify(data) };
     }
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    console.error('CHAT FUNCTION ERROR:', err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message, stack: err.stack }) };
   }
-}; 
+};

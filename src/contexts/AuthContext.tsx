@@ -20,6 +20,9 @@ interface UserSettings {
     voiceGender?: string;    // 'male' or 'female' if available
     rate?: number;
     pitch?: number;
+    openaiTTS?: boolean; // Whether to use OpenAI TTS
+    openaiVoice?: "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy";
+    openaiModel?: "tts-1" | "tts-1-hd";
   };
   stt?: {
     language?: string;
@@ -76,7 +79,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             voiceName: metadata.tts_voice_name,
             voiceGender: metadata.tts_voice_gender,
             rate: metadata.tts_rate,
-            pitch: metadata.tts_pitch
+            pitch: metadata.tts_pitch,
+            openaiTTS: metadata.tts_openai_tts === true || metadata.tts_openai_tts === 'true',
+            openaiVoice: metadata.tts_openai_voice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy" || "nova",
+            openaiModel: metadata.tts_openai_model as "tts-1" | "tts-1-hd" || "tts-1",
           },
           stt: {
             language: metadata.stt_language
@@ -214,6 +220,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tts_voice_gender: settings.tts?.voiceGender,
         tts_rate: settings.tts?.rate,
         tts_pitch: settings.tts?.pitch,
+        tts_openai_tts: settings.tts?.openaiTTS ?? false,
+        tts_openai_voice: settings.tts?.openaiVoice || "nova",
+        tts_openai_model: settings.tts?.openaiModel || "tts-1",
         stt_language: settings.stt?.language
       };
       

@@ -54,7 +54,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         setShowPasswordForm(false);
         setPasswordSuccess(false);
       }, 2000);
-    } catch (error) {
+    } catch {
       setPasswordError('Failed to update password. Please check your current password and try again.');
     }
   };
@@ -62,12 +62,12 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
   return (
     <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
       {/* Profile Section */}
-      <div className="flex items-center space-x-3 mb-4">
+      <div className="flex items-center justify-center space-x-3 mb-4">
         <User className="text-gray-600 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Profile</h2>
       </div>
       
-      <div className="space-y-6 pl-9">
+      <div className="space-y-6">
         {/* Username */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

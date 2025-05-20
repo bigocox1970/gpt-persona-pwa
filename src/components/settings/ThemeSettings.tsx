@@ -1,19 +1,19 @@
-import React from 'react';
-import { Moon, Sun, Droplet } from 'lucide-react';
+import React, { useState } from 'react';
+import { Moon, Sun, Droplet, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 // Theme constants
 const THEME_VARIABLES = [
-  'primary-color',
-  'secondary-color',
-  'accent-color',
-  'success-color',
-  'warning-color',
-  'error-color',
-  'text-primary',
-  'text-secondary',
-  'background-primary',
-  'background-secondary',
+  { key: 'primary-color', label: 'Primary' },
+  { key: 'secondary-color', label: 'Secondary' },
+  { key: 'accent-color', label: 'Accent' },
+  { key: 'success-color', label: 'Success' },
+  { key: 'warning-color', label: 'Warning' },
+  { key: 'error-color', label: 'Error' },
+  { key: 'text-primary', label: 'Text Primary' },
+  { key: 'text-secondary', label: 'Text Secondary' },
+  { key: 'background-primary', label: 'Background' },
+  { key: 'background-secondary', label: 'Background Alt' },
 ];
 
 const PALETTE_PRESETS: {
@@ -138,14 +138,29 @@ const applyPalette = (colors: {[key: string]: string}) => {
   });
 };
 
+// Helper function to get custom colors from localStorage
+const getCustomColors = (paletteIndex: number, isDark: boolean): {[key: string]: string} | null => {
+  const key = `custom_colors_${paletteIndex}_${isDark ? 'dark' : 'light'}`;
+  const stored = localStorage.getItem(key);
+  return stored ? JSON.parse(stored) : null;
+};
+
+// Helper function to save custom colors to localStorage
+const saveCustomColors = (paletteIndex: number, isDark: boolean, colors: {[key: string]: string}) => {
+  const key = `custom_colors_${paletteIndex}_${isDark ? 'dark' : 'light'}`;
+  localStorage.setItem(key, JSON.stringify(colors));
+};
+
 interface ThemeSettingsProps {
   initialPalette: number;
   onPaletteChange: (palette: number) => void;
+  onCustomColorsChange?: (colors: {[key: string]: string}) => void;
 }
 
 const ThemeSettings: React.FC<ThemeSettingsProps> = ({
   initialPalette,
-  onPaletteChange
+  onPaletteChange,
+  onCustomColorsChange
 }) => {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const [activePalette, setActivePalette] = React.useState<number>(initialPalette);
@@ -156,11 +171,38 @@ const ThemeSettings: React.FC<ThemeSettingsProps> = ({
     setActivePalette(initialPalette);
   }, [initialPalette]);
 
+  // State for custom colors
+  const [customColors, setCustomColors] = useState<{[key: string]: string}>({});
+  const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
+  
   // Apply palette when changed
   React.useEffect(() => {
     console.log('ThemeSettings: Applying palette', activePalette, isDarkMode ? 'dark' : 'light');
-    applyPalette(PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light']);
-  }, [activePalette, isDarkMode]);
+    
+    // Check for custom colors first
+    const savedCustomColors = getCustomColors(activePalette, isDarkMode);
+    
+    if (savedCustomColors) {
+      console.log('Applying custom colors:', savedCustomColors);
+      setCustomColors(savedCustomColors);
+      applyPalette(savedCustomColors);
+      
+      // Notify parent component about custom colors
+      if (onCustomColorsChange) {
+        onCustomColorsChange(savedCustomColors);
+      }
+    } else {
+      // Apply default palette
+      const defaultColors = PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light'];
+      setCustomColors(defaultColors);
+      applyPalette(defaultColors);
+      
+      // Notify parent component about default colors
+      if (onCustomColorsChange) {
+        onCustomColorsChange(defaultColors);
+      }
+    }
+  }, [activePalette, isDarkMode, onCustomColorsChange]);
 
   // Handle palette selection
   const handlePaletteChange = (index: number) => {
@@ -171,12 +213,12 @@ const ThemeSettings: React.FC<ThemeSettingsProps> = ({
 
   return (
     <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
-      <div className="flex items-center space-x-3 mb-4">
+      <div className="flex items-center justify-center space-x-3 mb-4">
         <Droplet className="text-gray-600 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Theme</h2>
       </div>
       
-      <div className="space-y-6 pl-9">
+      <div className="space-y-6">
         {/* Dark Mode Toggle */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -213,11 +255,11 @@ const ThemeSettings: React.FC<ThemeSettingsProps> = ({
                   <div className="flex flex-col items-center w-full">
                     <span className="text-xs mb-1">Light</span>
                     <div className="flex w-full">
-                      {THEME_VARIABLES.slice(0, 5).map((key, j) => (
+                      {THEME_VARIABLES.slice(0, 5).map((variable, j) => (
                         <span
                           key={j}
                           className="flex-1 h-4 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg"
-                          style={{ background: (preset.light as {[key: string]: string})[key] }}
+                          style={{ background: (preset.light as {[key: string]: string})[variable.key] }}
                         />
                       ))}
                     </div>
@@ -226,11 +268,11 @@ const ThemeSettings: React.FC<ThemeSettingsProps> = ({
                   <div className="flex flex-col items-center w-full">
                     <span className="text-xs mb-1">Dark</span>
                     <div className="flex w-full">
-                      {THEME_VARIABLES.slice(0, 5).map((key, j) => (
+                      {THEME_VARIABLES.slice(0, 5).map((variable, j) => (
                         <span
                           key={j}
                           className="flex-1 h-4 rounded-l-none rounded-r-none first:rounded-l-lg last:rounded-r-lg"
-                          style={{ background: (preset.dark as {[key: string]: string})[key] }}
+                          style={{ background: (preset.dark as {[key: string]: string})[variable.key] }}
                         />
                       ))}
                     </div>
@@ -240,6 +282,86 @@ const ThemeSettings: React.FC<ThemeSettingsProps> = ({
             ))}
           </div>
         </div>
+        
+        {/* Color Customization */}
+        {activePalette !== undefined && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Customize Colors
+              </label>
+              <button
+                onClick={() => {
+                  // Reset to default colors
+                  const defaultColors = PALETTE_PRESETS[activePalette][isDarkMode ? 'dark' : 'light'];
+                  setCustomColors(defaultColors);
+                  applyPalette(defaultColors);
+                  
+                  // Remove custom colors from localStorage
+                  const key = `custom_colors_${activePalette}_${isDarkMode ? 'dark' : 'light'}`;
+                  localStorage.removeItem(key);
+                  
+                  // Notify parent component about default colors
+                  if (onCustomColorsChange) {
+                    onCustomColorsChange(defaultColors);
+                  }
+                }}
+                className="flex items-center text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded"
+              >
+                <RefreshCw size={12} className="mr-1" />
+                Reset
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              {THEME_VARIABLES.map((variable) => (
+                <div 
+                  key={variable.key}
+                  className="flex items-center p-2 border border-gray-200 dark:border-gray-700 rounded"
+                >
+                  <div 
+                    className="w-6 h-6 rounded mr-2 cursor-pointer border border-gray-300 dark:border-gray-600"
+                    style={{ backgroundColor: customColors[variable.key] || '#ffffff' }}
+                    onClick={() => setShowColorPicker(variable.key)}
+                  />
+                  <span className="text-xs">{variable.label}</span>
+                  
+                  {showColorPicker === variable.key && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setShowColorPicker(null)}>
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-sm font-medium mb-2">Select {variable.label} Color</h3>
+                        <input 
+                          type="color" 
+                          value={customColors[variable.key] || '#ffffff'}
+                          onChange={(e) => {
+                            const newColors = { ...customColors, [variable.key]: e.target.value };
+                            setCustomColors(newColors);
+                            document.documentElement.style.setProperty(`--${variable.key}`, e.target.value);
+                            saveCustomColors(activePalette, isDarkMode, newColors);
+                            
+                            // Notify parent component about custom colors
+                            if (onCustomColorsChange) {
+                              onCustomColorsChange(newColors);
+                            }
+                          }}
+                          className="w-full h-10 mb-3"
+                        />
+                        <div className="flex justify-end">
+                          <button 
+                            className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded"
+                            onClick={() => setShowColorPicker(null)}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

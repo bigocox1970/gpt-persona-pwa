@@ -1,14 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
+import { fetchTTS } from '../lib/tts/openaiTTS';
+import { useTTSPlayer } from '../lib/tts/useTTSPlayer';
 
 interface TTSOptions {
   rate?: number;
   pitch?: number;
   voice?: SpeechSynthesisVoice | null;
+  openaiVoice?: "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy";
+  openaiModel?: "tts-1" | "tts-1-hd";
+  useOpenAI?: boolean;
 }
 
 const TTS_SETTINGS_KEY = 'tts_settings';
 
 export const useTTS = (defaultOptions?: TTSOptions) => {
+  const { playBlob, stop: stopOpenAI, isPlaying } = useTTSPlayer();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [options, setOptions] = useState<TTSOptions>(() => {
@@ -18,13 +24,19 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       return {
         rate: parsed.rate || 1,
         pitch: parsed.pitch || 1,
-        voice: null // Voice will be set after loading available voices
+        voice: null, // Voice will be set after loading available voices
+        openaiVoice: parsed.openaiVoice || "nova",
+        openaiModel: parsed.openaiModel || "tts-1",
+        useOpenAI: parsed.useOpenAI || false
       };
     }
     return {
       rate: defaultOptions?.rate || 1,
       pitch: defaultOptions?.pitch || 1,
-      voice: null
+      voice: null,
+      openaiVoice: defaultOptions?.openaiVoice || "nova",
+      openaiModel: defaultOptions?.openaiModel || "tts-1",
+      useOpenAI: defaultOptions?.useOpenAI || false
     };
   });
 
@@ -124,7 +136,8 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     */
   }, []);
 
-  const speak = useCallback((text: string, customOptions?: TTSOptions) => {
+  // Helper function to use browser's built-in TTS
+  const speakWithBrowserTTS = useCallback((text: string, currentOptions: TTSOptions) => {
     if (!window.speechSynthesis) {
       console.error('Speech synthesis not supported in this browser');
       return;
@@ -134,8 +147,6 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    const currentOptions = { ...options, ...customOptions };
     
     // Apply voice first so we can normalize rate based on voice
     if (currentOptions.voice) {
@@ -154,13 +165,54 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     utterance.onerror = () => setSpeaking(false);
 
     synth.speak(utterance);
-  }, [options, normalizeRate]);
+  }, [normalizeRate]);
+
+  // Update speaking state when isPlaying changes
+  useEffect(() => {
+    if (options.useOpenAI) {
+      setSpeaking(isPlaying);
+    }
+  }, [isPlaying, options.useOpenAI]);
+
+  const speak = useCallback(async (text: string, customOptions?: TTSOptions) => {
+    const currentOptions = { ...options, ...customOptions };
+    
+    // Use OpenAI TTS if enabled
+    if (currentOptions.useOpenAI) {
+      try {
+        // setSpeaking will be handled by isPlaying effect
+        const blob = await fetchTTS({
+          text,
+          voice: currentOptions.openaiVoice,
+          model: currentOptions.openaiModel
+        });
+        await playBlob(blob);
+      } catch (error) {
+        console.error('OpenAI TTS error:', error);
+        setSpeaking(false);
+        // Fallback to browser TTS
+        if (window.speechSynthesis) {
+          speakWithBrowserTTS(text, currentOptions);
+        }
+      }
+      return;
+    }
+    
+    // Use browser TTS
+    speakWithBrowserTTS(text, currentOptions);
+  }, [options, playBlob, speakWithBrowserTTS]);
 
   const stop = useCallback(() => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    if (options.useOpenAI) {
+      stopOpenAI();
+    }
+    
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
     setSpeaking(false);
-  }, []);
+  }, [options.useOpenAI, stopOpenAI]);
 
   const updateOptions = useCallback((newOptions: Partial<TTSOptions>) => {
     setOptions(prev => {
@@ -170,24 +222,35 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       const saveData = {
         rate: updated.rate,
         pitch: updated.pitch,
-        voiceURI: updated.voice?.voiceURI || null
+        voiceURI: updated.voice?.voiceURI || null,
+        openaiVoice: updated.openaiVoice,
+        openaiModel: updated.openaiModel,
+        useOpenAI: updated.useOpenAI
       };
       
       console.log('Saving TTS settings to localStorage:', saveData);
       localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
       
+      // Update speaking state when OpenAI TTS is toggled
+      if (newOptions.useOpenAI !== undefined) {
+        setSpeaking(false);
+        stop();
+      }
+      
       return updated;
     });
-  }, []);
+  }, [stop]);
 
   const selectVoice = useCallback((criteria: { name?: string; lang?: string }) => {
     if (!voices.length) return;
 
-    let selectedVoice = null;
+    let selectedVoice: SpeechSynthesisVoice | null = null;
     if (criteria.name) {
-      selectedVoice = voices.find(voice => voice.name.includes(criteria.name!));
+      const found = voices.find(voice => voice.name.includes(criteria.name!));
+      if (found) selectedVoice = found;
     } else if (criteria.lang) {
-      selectedVoice = voices.find(voice => voice.lang.includes(criteria.lang!));
+      const found = voices.find(voice => voice.lang.includes(criteria.lang!));
+      if (found) selectedVoice = found;
     }
 
     if (selectedVoice) {
