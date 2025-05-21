@@ -45,39 +45,68 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       console.error('Error loading TTS settings:', error);
     }
     
-    // Default settings
+    // Default settings - make OpenAI TTS the default
     const defaults = {
       rate: defaultOptions?.rate ?? 1,
       pitch: defaultOptions?.pitch ?? 1,
       voice: null,
       openaiVoice: defaultOptions?.openaiVoice ?? "nova",
       openaiModel: defaultOptions?.openaiModel ?? "tts-1",
-      useOpenAI: defaultOptions?.useOpenAI ?? false
+      useOpenAI: true // Always default to OpenAI TTS unless explicitly disabled
     };
     console.log('Using default TTS settings:', defaults);
     return defaults;
   });
 
-  // Force initialize settings from localStorage
+  // Force initialize settings from localStorage or set defaults
   useEffect(() => {
     try {
       const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+      let settings;
+      
       if (savedSettings) {
+        // If we have saved settings, parse them
         const parsed = JSON.parse(savedSettings);
-        console.log('Force initializing TTS settings:', parsed);
+        console.log('Found saved TTS settings:', parsed);
         
-        // Update options immediately
-        setOptions(prev => ({
-          ...prev,
-          rate: parsed.rate ?? prev.rate,
-          pitch: parsed.pitch ?? prev.pitch,
-          openaiVoice: parsed.openaiVoice ?? prev.openaiVoice,
-          openaiModel: parsed.openaiModel ?? prev.openaiModel,
-          useOpenAI: parsed.useOpenAI ?? prev.useOpenAI
-        }));
+        // Only use useOpenAI: false if it was explicitly set to false
+        const useOpenAI = parsed.useOpenAI === false ? false : true;
+        
+        settings = {
+          rate: parsed.rate ?? 1,
+          pitch: parsed.pitch ?? 1,
+          openaiVoice: parsed.openaiVoice ?? "nova",
+          openaiModel: parsed.openaiModel ?? "tts-1",
+          useOpenAI
+        };
+      } else {
+        // If no saved settings, use defaults with OpenAI enabled
+        settings = {
+          rate: 1,
+          pitch: 1,
+          openaiVoice: "nova",
+          openaiModel: "tts-1",
+          useOpenAI: true
+        };
       }
+      
+      console.log('Initializing TTS with settings:', settings);
+      
+      // Save settings to localStorage
+      localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(settings));
+      
+      // Update options immediately
+      setOptions(prev => ({
+        ...prev,
+        ...settings
+      }));
     } catch (error) {
-      console.error('Error force initializing TTS settings:', error);
+      console.error('Error initializing TTS settings:', error);
+      // On error, ensure we still default to OpenAI
+      setOptions(prev => ({
+        ...prev,
+        useOpenAI: true
+      }));
     }
   }, []); // Run once on mount
 
