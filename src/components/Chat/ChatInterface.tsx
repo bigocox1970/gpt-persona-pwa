@@ -408,35 +408,33 @@ const ChatInterface: React.FC = () => {
   // Create a ref to track if we're in the process of toggling
   const isTogglingRef = useRef(false);
   
-  const toggleVoiceInput = useCallback(async () => {
+  const toggleVoiceInput = useCallback(() => {
     // Prevent multiple rapid clicks
     if (isTogglingRef.current) {
       console.log('Already toggling voice input, ignoring click');
       return;
     }
     isTogglingRef.current = true;
-    try {
-      // Always stop and clean up before starting
-      await stopListening();
-      clearTranscripts();
-      setInputText('');
-      if (isListening) {
-        // Just stopped, don't start again
-        console.log('Stopped listening.');
-      } else {
-        if (inputRef.current) inputRef.current.focus();
-        await startListening();
-        console.log('Started listening.');
-      }
-    } catch (error) {
-      console.error('Error toggling voice input:', error);
-      await stopListening();
-      clearTranscripts();
-      setInputText('');
-    } finally {
+    // Always stop and clean up before starting
+    stopListening();
+    clearTranscripts();
+    setInputText('');
+    if (isListening) {
+      // Just stopped, don't start again
+      console.log('Stopped listening.');
       setTimeout(() => {
         isTogglingRef.current = false;
-      }, 1000);
+      }, 500);
+    } else {
+      if (inputRef.current) inputRef.current.focus();
+      // Add a short delay to allow the mic to be released (important on mobile)
+      setTimeout(() => {
+        startListening();
+        console.log('Started listening.');
+        setTimeout(() => {
+          isTogglingRef.current = false;
+        }, 500);
+      }, 200);
     }
   }, [isListening, stopListening, clearTranscripts, startListening]);
 
