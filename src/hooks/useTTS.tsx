@@ -2,6 +2,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { fetchTTS } from '../lib/tts/openaiTTS';
 import { useTTSPlayer } from '../lib/tts/useTTSPlayer';
 
+// Declare WebKit interfaces
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
+
 interface TTSOptions {
   rate?: number;
   pitch?: number;
@@ -18,29 +25,40 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   const { playBlob, stop: stopOpenAI, isPlaying } = useTTSPlayer();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  // Initialize options from localStorage or defaults
   const [options, setOptions] = useState<TTSOptions>(() => {
-    const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      return {
-        rate: parsed.rate || 1,
-        pitch: parsed.pitch || 1,
-        voice: null, // Voice will be set after loading available voices
-        openaiVoice: parsed.openaiVoice || "nova",
-        openaiModel: parsed.openaiModel || "tts-1",
-        useOpenAI: parsed.useOpenAI || false
-      };
+    try {
+      const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        console.log('Loaded TTS settings from localStorage:', parsed);
+        return {
+          rate: parsed.rate ?? 1,
+          pitch: parsed.pitch ?? 1,
+          voice: null, // Voice will be set after loading available voices
+          openaiVoice: parsed.openaiVoice ?? "nova",
+          openaiModel: parsed.openaiModel ?? "tts-1",
+          useOpenAI: parsed.useOpenAI ?? false
+        };
+      }
+    } catch (error) {
+      console.error('Error loading TTS settings:', error);
     }
-    return {
-      rate: defaultOptions?.rate || 1,
-      pitch: defaultOptions?.pitch || 1,
+    
+    // Default settings
+    const defaults = {
+      rate: defaultOptions?.rate ?? 1,
+      pitch: defaultOptions?.pitch ?? 1,
       voice: null,
-      openaiVoice: defaultOptions?.openaiVoice || "nova",
-      openaiModel: defaultOptions?.openaiModel || "tts-1",
-      useOpenAI: defaultOptions?.useOpenAI || false
+      openaiVoice: defaultOptions?.openaiVoice ?? "nova",
+      openaiModel: defaultOptions?.openaiModel ?? "tts-1",
+      useOpenAI: defaultOptions?.useOpenAI ?? false
     };
+    console.log('Using default TTS settings:', defaults);
+    return defaults;
   });
 
+  // Load voices and initialize settings
   useEffect(() => {
     if (!window.speechSynthesis) {
       console.error('Speech synthesis not supported in this browser');
@@ -65,20 +83,33 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         if (savedSettings && availableVoices.length > 0) {
           try {
             const parsed = JSON.parse(savedSettings);
-            console.log('Parsed saved settings:', parsed);
+            console.log('Loading saved TTS settings:', parsed);
             
+            // Update all settings
+            const updatedOptions: TTSOptions = {
+              rate: parsed.rate ?? options.rate,
+              pitch: parsed.pitch ?? options.pitch,
+              openaiVoice: parsed.openaiVoice ?? options.openaiVoice,
+              openaiModel: parsed.openaiModel ?? options.openaiModel,
+              useOpenAI: parsed.useOpenAI ?? options.useOpenAI,
+              voice: null // Will be set below
+            };
+            
+            // Try to find saved voice
             if (parsed.voiceURI) {
               const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
               if (savedVoice) {
                 console.log('Found saved voice:', savedVoice.name);
-                setOptions(prev => ({ ...prev, voice: savedVoice }));
+                updatedOptions.voice = savedVoice;
               } else {
                 console.log('Saved voice not found, using default');
-                // If saved voice not found, use default
-                const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0];
-                setOptions(prev => ({ ...prev, voice: defaultVoice }));
+                updatedOptions.voice = availableVoices.find(v => v.default) || availableVoices[0];
               }
             }
+            
+            // Update all options at once
+            setOptions(updatedOptions);
+            console.log('Updated TTS options:', updatedOptions);
           } catch (e) {
             console.error('Error parsing saved TTS settings:', e);
           }
@@ -220,7 +251,35 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     setSpeaking(false);
   }, [options.useOpenAI, stopOpenAI]);
 
-  const updateOptions = useCallback((newOptions: Partial<TTSOptions>) => {
+  const updateOptions = useCallback(async (newOptions: Partial<TTSOptions>) => {
+    // Reset speech synthesis when switching TTS modes
+    if (newOptions.useOpenAI !== undefined) {
+      setSpeaking(false);
+      stop();
+      
+      // Ensure all audio contexts are properly cleaned up
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        
+        // Force a reset of the speech synthesis engine
+        setTimeout(() => {
+          window.speechSynthesis.resume();
+          window.speechSynthesis.cancel();
+        }, 100);
+      }
+      
+      // Release any existing audio contexts
+      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextImpl) {
+        try {
+          const tempContext = new AudioContextImpl();
+          await tempContext.close();
+        } catch (err) {
+          console.error('Error cleaning up audio context:', err);
+        }
+      }
+    }
+
     setOptions(prev => {
       const updated = { ...prev, ...newOptions };
       
@@ -236,15 +295,6 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       
       console.log('Saving TTS settings to localStorage:', saveData);
       localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
-      
-      // Reset speech synthesis when switching TTS modes
-      if (newOptions.useOpenAI !== undefined) {
-        setSpeaking(false);
-        stop();
-        if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-        }
-      }
       
       return updated;
     });
