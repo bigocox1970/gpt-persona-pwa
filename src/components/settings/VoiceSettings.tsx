@@ -9,12 +9,14 @@ interface VoiceSettingsProps {
   openaiTTS?: boolean;
   openaiVoice?: string;
   openaiModel?: string;
+  allowBrowserFallback?: boolean;
   onVoiceChange: (voice: SpeechSynthesisVoice | null) => void;
   onRateChange: (rate: number) => void;
   onPitchChange: (pitch: number) => void;
   onOpenAITTSChange?: (enabled: boolean) => void;
   onOpenAIVoiceChange?: (voice: string) => void;
   onOpenAIModelChange?: (model: string) => void;
+  onAllowBrowserFallbackChange?: (allow: boolean) => void;
 }
 
 const VoiceSettings: React.FC<VoiceSettingsProps> = ({
@@ -24,12 +26,14 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
   openaiTTS = false,
   openaiVoice = "nova",
   openaiModel = "tts-1",
+  allowBrowserFallback = false,
   onVoiceChange,
   onRateChange,
   onPitchChange,
   onOpenAITTSChange,
   onOpenAIVoiceChange,
-  onOpenAIModelChange
+  onOpenAIModelChange,
+  onAllowBrowserFallbackChange
 }) => {
   const { voices, speak } = useTTS();
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -39,6 +43,7 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
   const [useOpenAITTS, setUseOpenAITTS] = useState<boolean>(openaiTTS);
   const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState<string>(openaiVoice);
   const [selectedOpenAIModel, setSelectedOpenAIModel] = useState<string>(openaiModel);
+  const [allowFallback, setAllowFallback] = useState<boolean>(allowBrowserFallback);
   
   // Update state when props change
   useEffect(() => {
@@ -162,9 +167,10 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
     speak('This is a test of the selected OpenAI voice.', { 
       useOpenAI: true,
       openaiVoice: selectedOpenAIVoice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy",
-      openaiModel: selectedOpenAIModel as "tts-1" | "tts-1-hd"
+      openaiModel: selectedOpenAIModel as "tts-1" | "tts-1-hd",
+      allowBrowserFallback: allowFallback
     });
-  }, [speak, selectedOpenAIVoice, selectedOpenAIModel]);
+  }, [speak, selectedOpenAIVoice, selectedOpenAIModel, allowFallback]);
 
   return (
     <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-sm p-4 mb-4">
@@ -191,6 +197,28 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
         {/* OpenAI TTS Settings */}
         {useOpenAITTS && (
           <div className="space-y-4 border-l-2 border-gray-200 dark:border-gray-700 pl-4 ml-1">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="browser-fallback-toggle"
+                checked={allowFallback}
+                onChange={(e) => {
+                  setAllowFallback(e.target.checked);
+                  if (onAllowBrowserFallbackChange) {
+                    onAllowBrowserFallbackChange(e.target.checked);
+                  }
+                  // Test the fallback
+                  speak('Testing browser fallback.', {
+                    useOpenAI: true,
+                    allowBrowserFallback: e.target.checked
+                  });
+                }}
+                className="mr-2 h-4 w-4"
+              />
+              <label htmlFor="browser-fallback-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Allow browser TTS fallback if OpenAI fails
+              </label>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 OpenAI Voice

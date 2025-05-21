@@ -9,6 +9,7 @@ interface TTSOptions {
   openaiVoice?: "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy";
   openaiModel?: "tts-1" | "tts-1-hd";
   useOpenAI?: boolean;
+  allowBrowserFallback?: boolean;
 }
 
 const TTS_SETTINGS_KEY = 'tts_settings';
@@ -177,6 +178,11 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   const speak = useCallback(async (text: string, customOptions?: TTSOptions) => {
     const currentOptions = { ...options, ...customOptions };
     
+    // Always cancel any existing speech synthesis
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
     // Use OpenAI TTS if enabled
     if (currentOptions.useOpenAI) {
       try {
@@ -190,8 +196,8 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       } catch (error) {
         console.error('OpenAI TTS error:', error);
         setSpeaking(false);
-        // Fallback to browser TTS
-        if (window.speechSynthesis) {
+        // Only fallback to browser TTS if explicitly allowed
+        if (window.speechSynthesis && currentOptions.allowBrowserFallback) {
           speakWithBrowserTTS(text, currentOptions);
         }
       }
@@ -231,10 +237,13 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       console.log('Saving TTS settings to localStorage:', saveData);
       localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
       
-      // Update speaking state when OpenAI TTS is toggled
+      // Reset speech synthesis when switching TTS modes
       if (newOptions.useOpenAI !== undefined) {
         setSpeaking(false);
         stop();
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
       }
       
       return updated;

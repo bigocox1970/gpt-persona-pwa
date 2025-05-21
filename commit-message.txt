@@ -1,5 +1,9 @@
-fix: remove wasted space under headers and hide scrollbars
+fix: improve audio resource management to prevent STT/TTS interference
 
-- Removed redundant titles from Settings and Tools pages
-- Changed padding from 64px to 10px for consistent header spacing
-- Added CSS to hide scrollbars while maintaining scroll functionality
+- Add proper cleanup of audio contexts and resources in TTS player
+- Add explicit microphone stream management in STT hook
+- Add cleanup of media streams when stopping recognition
+- Add delay between audio playback to ensure contexts are cleaned up
+- Fix TypeScript types for Web Speech API interfaces
+
+This fixes an issue where the browser's Speech-to-Text functionality had reduced sensitivity after enabling OpenAI TTS, by ensuring proper cleanup of audio resources and preventing interference between the two systems.
