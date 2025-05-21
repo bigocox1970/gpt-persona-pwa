@@ -94,7 +94,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
   const [options, setOptions] = useState<STTOptions>({
     language: 'en-US',
     continuous: false, // iOS: continuous mode is buggy
-    interimResults: true,
+    interimResults: true, // Always stream interim results
     ...defaultOptions
   });
 
@@ -146,6 +146,10 @@ export const useSTT = (defaultOptions?: STTOptions) => {
 
   // Start listening: create a new recognition instance, attach handlers, and start
   const startListening = useCallback(() => {
+    if (isListening || recognitionRef.current) {
+      console.log('[STT] Already listening, not starting again.');
+      return;
+    }
     if (!('webkitSpeechRecognition' in window)) {
       setError('Speech recognition not supported');
       return;
@@ -164,25 +168,29 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     recognitionRef.current = rec;
     rec.lang = options.language || 'en-US';
     rec.continuous = false; // iOS: continuous mode is buggy
-    rec.interimResults = true;
+    rec.interimResults = true; // Always stream interim results
     rec.maxAlternatives = 1;
 
     rec.onstart = () => {
+      console.log('[STT] onstart');
       setIsListening(true);
       setError(null);
       setTranscript('');
       setFinalTranscript('');
     };
     rec.onend = async () => {
+      console.log('[STT] onend');
       setIsListening(false);
       clearRecognitionHandlers(rec);
       recognitionRef.current = null;
       await forceReleaseMicMobile();
     };
     rec.onspeechend = () => {
+      console.log('[STT] onspeechend');
       rec.stop();
     };
     rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.log('[STT] onerror', event.error);
       setError(event.error);
       setIsListening(false);
       clearRecognitionHandlers(rec);
@@ -204,6 +212,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     };
 
     try {
+      console.log('[STT] rec.start()');
       rec.start();
     } catch (err) {
       setError('Error starting recognition');
@@ -211,7 +220,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       clearRecognitionHandlers(rec);
       recognitionRef.current = null;
     }
-  }, [options.language, cleanupRecognition]);
+  }, [options.language, cleanupRecognition, isListening]);
 
   // Stop listening: stop/abort recognition and cleanup
   const stopListening = useCallback(() => {
