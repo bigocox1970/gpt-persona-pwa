@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SendHorizontal, Mic, MicOff, Volume2 } from 'lucide-react';
 import { usePersona } from '../../contexts/PersonaContext';
 import { useTTS } from '../../hooks/useTTS';
@@ -374,33 +374,32 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  const toggleVoiceInput = () => {
+  const toggleVoiceInput = useCallback(async () => {
     if (isListening) {
       stopListening();
-    } else {
-      // Clear any previous transcripts
       clearTranscripts();
       setInputText('');
-      
-      // On mobile, we need to focus the input field to trigger the keyboard
-      // which often helps with permission prompts
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Focus the input field
+    } else {
+      try {
+        // Focus input field first
         if (inputRef.current) {
           inputRef.current.focus();
-          // Small delay to ensure focus happens before speech recognition starts
-          setTimeout(() => {
-            startListening();
-          }, 300);
-        } else {
-          startListening();
         }
-      } else {
-        // On desktop, just start listening
-        startListening();
+        
+        // Start listening first to ensure microphone permission
+        await startListening();
+        
+        // Only clear after successful start
+        clearTranscripts();
+        setInputText('');
+      } catch (error) {
+        console.error('Error activating microphone:', error);
+        // Reset state if there's an error
+        stopListening();
+        clearTranscripts();
       }
     }
-  };
+  }, [isListening, stopListening, clearTranscripts, startListening]);
 
   const toggleSpeech = () => {
     if (speaking) {

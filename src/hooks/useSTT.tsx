@@ -99,71 +99,86 @@ export const useSTT = (defaultOptions?: STTOptions) => {
 
   // Initialize speech recognition
   useEffect(() => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setError('Speech recognition is not supported in this browser');
-      return;
-    }
-
     let recognitionInstance: ExtendedSpeechRecognition | null = null;
 
-    // Request microphone permission first
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        console.log('Microphone access granted');
+    const initializeRecognition = () => {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        setError('Speech recognition is not supported in this browser');
+        return null;
+      }
 
-        // Create speech recognition instance after permission is granted
-        const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognitionImpl) {
-          setError('Speech recognition is not supported in this browser');
-          return;
-        }
-        recognitionInstance = new SpeechRecognitionImpl() as ExtendedSpeechRecognition;
+      // Create speech recognition instance
+      const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognitionImpl) {
+        setError('Speech recognition is not supported in this browser');
+        return null;
+      }
+
+      try {
+        const instance = new SpeechRecognitionImpl() as ExtendedSpeechRecognition;
         
         // Configure options
-        recognitionInstance.lang = options.language || 'en-US';
-        recognitionInstance.continuous = options.continuous || false;
-        recognitionInstance.interimResults = true; // Always enable for better sensitivity
+        instance.lang = options.language || 'en-US';
+        instance.continuous = options.continuous || false;
+        instance.interimResults = true; // Always enable for better sensitivity
         
-        // Store the stream
-        recognitionInstance.mediaStream = stream;
-        
-        console.log('Speech recognition initialized with language:', recognitionInstance.lang);
+        console.log('Speech recognition initialized with language:', instance.lang);
+        return instance;
+      } catch (err) {
+        console.error('Error initializing speech recognition:', err);
+        setError('Error initializing speech recognition');
+        return null;
+      }
+    };
 
-        // Set up event handlers
-        recognitionInstance.onstart = () => {
-          setIsListening(true);
-          setError(null);
-          console.log('Speech recognition started');
-        };
+    const instance = initializeRecognition();
+    if (!instance) {
+      setRecognition(null);
+      return;
+    }
+    
+    recognitionInstance = instance;
 
-        recognitionInstance.onend = () => {
-          setIsListening(false);
-          console.log('Speech recognition ended');
-          
-          // Don't stop the media stream on end, keep it alive for next recognition
-          if (recognitionInstance?.mediaStream) {
-            console.log('Keeping media stream alive for next recognition');
+    // Set up event handlers
+    recognitionInstance.onstart = () => {
+      setIsListening(true);
+      setError(null);
+      console.log('Speech recognition started');
+    };
+
+    recognitionInstance.onend = () => {
+      // Only set isListening to false if we're not in an error state
+      if (!error) {
+        setIsListening(false);
+        console.log('Speech recognition ended normally');
+      } else {
+        console.log('Speech recognition ended with error');
+      }
+    };
+
+    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('Recognition error:', event.error);
+      setError(`Recognition error: ${event.error}`);
+      setIsListening(false);
+      
+      // Clean up media stream on error
+      if (recognitionInstance.mediaStream) {
+        recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
+        recognitionInstance.mediaStream = undefined;
+      }
+      
+      // Try to restart recognition if it was aborted or audio ended
+      if (event.error === 'aborted' || event.error === 'audio-capture') {
+        console.log('Attempting to restart recognition...');
+        setTimeout(() => {
+          if (recognitionInstance && !isListening) {
+            recognitionInstance.start();
           }
-        };
+        }, 1000);
+      }
+    };
 
-        recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-          console.error('Recognition error:', event.error);
-          setError(`Recognition error: ${event.error}`);
-          setIsListening(false);
-          
-          // Only stop stream on fatal errors
-          if (event.error === 'not-allowed' || event.error === 'audio-capture') {
-            if (recognitionInstance?.mediaStream) {
-              recognitionInstance.mediaStream.getTracks().forEach(track => {
-                track.stop();
-                console.log('Stopped media track due to fatal error:', track.kind);
-              });
-              recognitionInstance.mediaStream = undefined;
-            }
-          }
-        };
-
-        recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
       let finalTranscriptValue = '';
 
@@ -184,12 +199,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       }
     };
 
-        setRecognition(recognitionInstance);
-      })
-      .catch(err => {
-        console.error('Error accessing microphone:', err);
-        setError('Error accessing microphone');
-      });
+    setRecognition(recognitionInstance);
 
     return () => {
       if (recognitionInstance) {
@@ -198,49 +208,90 @@ export const useSTT = (defaultOptions?: STTOptions) => {
           recognitionInstance.stop();
         }
         
+        // Clean up media stream
+        if (recognitionInstance.mediaStream) {
+          recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
+          recognitionInstance.mediaStream = undefined;
+        }
+        
         // Remove event listeners
         recognitionInstance.onstart = null;
         recognitionInstance.onend = null;
         recognitionInstance.onresult = null;
         recognitionInstance.onerror = null;
         
-        // Stop and cleanup media stream
-        if (recognitionInstance.mediaStream) {
-          recognitionInstance.mediaStream.getTracks().forEach(track => {
-            track.stop();
-            console.log('Stopped media track on cleanup:', track.kind);
-          });
-          recognitionInstance.mediaStream = undefined;
-        }
+        // Reset state
+        setIsListening(false);
+        setError(null);
       }
     };
-  }, [options, isListening]);
+  }, [options]); // Re-initialize when options change
 
-  // Start listening
-  const startListening = useCallback(() => {
-    if (!recognition) return;
-    
-    setTranscript('');
-    setFinalTranscript('');
-    
+  // Handle microphone permissions
+  const ensureMicrophoneAccess = async () => {
     try {
-      recognition.start();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      return stream;
     } catch (err) {
-      console.error('Recognition error:', err);
-      setError('Error starting speech recognition');
+      console.error('Error accessing microphone:', err);
+      setError('Error accessing microphone');
+      return null;
     }
-  }, [recognition]);
+  };
 
   // Stop listening
   const stopListening = useCallback(() => {
-    if (!recognition || !isListening) return;
+    if (!recognition) return;
     
     try {
+      // Stop recognition
       recognition.stop();
+      
+      // Clean up media stream
+      if (recognition.mediaStream) {
+        recognition.mediaStream.getTracks().forEach(track => track.stop());
+        recognition.mediaStream = undefined;
+      }
+      
+      setIsListening(false);
     } catch (err) {
       console.error('Error stopping recognition:', err);
+      setIsListening(false);
     }
-  }, [recognition, isListening]);
+  }, [recognition]);
+
+  // Start listening
+  const startListening = useCallback(async () => {
+    if (!recognition) {
+      console.error('Speech recognition not initialized');
+      return;
+    }
+    
+    try {
+      // Stop any existing recognition
+      stopListening();
+      
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Ensure we have microphone access first
+      const stream = await ensureMicrophoneAccess();
+      if (!stream) {
+        throw new Error('Failed to get microphone access');
+      }
+      
+      // Store the stream
+      recognition.mediaStream = stream;
+      
+      // Start recognition
+      recognition.start();
+      console.log('Starting recognition...');
+    } catch (error) {
+      console.error('Recognition error:', error);
+      setError('Error starting speech recognition');
+      stopListening();
+    }
+  }, [recognition, isListening, stopListening, ensureMicrophoneAccess]);
 
   // Update options
   const updateOptions = useCallback((newOptions: Partial<STTOptions>) => {
