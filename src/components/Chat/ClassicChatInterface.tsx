@@ -77,14 +77,16 @@ const ClassicChatInterface: React.FC = () => {
 
   // Stream interim transcript to input, but keep final when available
   useEffect(() => {
-    if (isListening) {
-      if (transcript) setInput(transcript);
+    if (isListening && transcript) {
+      setInput(transcript);
     }
   }, [transcript, isListening]);
 
   useEffect(() => {
-    if (finalTranscript) setInput(finalTranscript);
-  }, [finalTranscript]);
+    if (isListening && finalTranscript) {
+      setInput(finalTranscript);
+    }
+  }, [finalTranscript, isListening]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -114,6 +116,11 @@ const ClassicChatInterface: React.FC = () => {
       stream();
     }, 500);
     setInput("");
+    // Clear STT transcripts after sending to avoid overwriting user input
+    // @ts-ignore
+    if (typeof setTranscript === "function") setTranscript("");
+    // @ts-ignore
+    if (typeof setFinalTranscript === "function") setFinalTranscript("");
   };
 
   return (
