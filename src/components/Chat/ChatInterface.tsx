@@ -166,15 +166,16 @@ const ChatInterface: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Update input text when voice transcript changes
+  // Stream interim transcript to input, but keep final when available
   useEffect(() => {
-    if (transcript) {
-      setInputText(transcript);
+    if (isListening) {
+      if (transcript) setInputText(transcript);
     }
-    if (finalTranscript) {
-      setInputText(finalTranscript);
-    }
-  }, [transcript, finalTranscript]);
+  }, [transcript, isListening]);
+
+  useEffect(() => {
+    if (finalTranscript) setInputText(finalTranscript);
+  }, [finalTranscript]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || !selectedPersona || !chatSessionId || !sessionInitialized) {
@@ -347,12 +348,33 @@ const ChatInterface: React.FC = () => {
       }
 
       if (aiMessage) {
-        setMessages(prev => [...prev, {
-          id: aiMessage.id,
-          text: aiMessage.content,
-          sender: 'ai',
-          timestamp: new Date(aiMessage.created_at)
-        }]);
+        // Simulate streaming the AI response word-by-word
+        const words = aiMessage.content.split(" ");
+        setMessages(prev => [
+          ...prev,
+          {
+            id: aiMessage.id,
+            text: "",
+            sender: "ai",
+            timestamp: new Date(aiMessage.created_at),
+          },
+        ]);
+        let i = 0;
+        function stream() {
+          setMessages(prev => {
+            const newMsgs = [...prev];
+            newMsgs[newMsgs.length - 1] = {
+              ...newMsgs[newMsgs.length - 1],
+              text: words.slice(0, i + 1).join(" "),
+            };
+            return newMsgs;
+          });
+          i++;
+          if (i < words.length) {
+            setTimeout(stream, 60);
+          }
+        }
+        stream();
       }
 
       // Update last_message_at
