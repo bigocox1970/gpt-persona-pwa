@@ -188,8 +188,17 @@ const ChatInterface: React.FC = () => {
     }
     
     const userMessageText = inputText.trim();
+    
+    // Stop listening if active
+    if (isListening) {
+      stopListening();
+    }
+    
+    // Clear input and transcripts
     setInputText('');
     clearTranscripts();
+    
+    // Set loading state
     setIsLoading(true);
     
     try {
@@ -386,17 +395,18 @@ const ChatInterface: React.FC = () => {
           inputRef.current.focus();
         }
         
-        // Start listening first to ensure microphone permission
-        await startListening();
-        
-        // Only clear after successful start
+        // Clear any existing text and transcripts before starting
         clearTranscripts();
         setInputText('');
+        
+        // Request microphone permission and start listening
+        await startListening();
       } catch (error) {
         console.error('Error activating microphone:', error);
         // Reset state if there's an error
         stopListening();
         clearTranscripts();
+        setInputText('');
       }
     }
   }, [isListening, stopListening, clearTranscripts, startListening]);

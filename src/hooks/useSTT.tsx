@@ -245,11 +245,43 @@ export const useSTT = (defaultOptions?: STTOptions) => {
   // Handle microphone permissions
   const ensureMicrophoneAccess = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // First check if we already have permission
+      const permissions = await navigator.mediaDevices.enumerateDevices();
+      const audioPermission = permissions.find(device => device.kind === 'audioinput');
+      
+      // If we have a device but no label, we need permission
+      if (audioPermission && !audioPermission.label) {
+        console.log('Requesting microphone permission...');
+      }
+      
+      // Request microphone access with specific constraints for iOS
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1
+        } 
+      });
+      
+      // On iOS, we need to keep the stream active
+      stream.getTracks().forEach(track => {
+        track.onended = () => {
+          console.log('Audio track ended unexpectedly');
+          setError('Audio track ended');
+          setIsListening(false);
+          // Force reinitialize on track end
+          setOptions(prev => ({...prev}));
+        };
+      });
+      
       return stream;
     } catch (err) {
       console.error('Error accessing microphone:', err);
       setError('Error accessing microphone');
+      // Force reinitialize on error
+      setOptions(prev => ({...prev}));
       return null;
     }
   };
