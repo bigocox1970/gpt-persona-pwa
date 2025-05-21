@@ -31,8 +31,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   };
 
   // Check if current page is chat or settings to handle special layout
-  const isChatPage = location.pathname === '/chat';
+  const isChatPage = location.pathname === '/chat' || location.pathname === '/classic-chat';
   const isSettingsPage = location.pathname === '/settings';
+
+  console.log("[Layout] route:", location.pathname, "selectedPersona:", selectedPersona);
 
   return (
     <div className="flex flex-col h-screen bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
@@ -40,8 +42,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
         showPersona={isChatPage && !!selectedPersona}
         persona={isChatPage ? selectedPersona : undefined}
         title={!isChatPage ? getHeaderTitle() : undefined}
-        onHistoryClick={isChatPage ? () => setShowHistoryOverlay(true) : undefined}
-        onToolsClick={isChatPage ? () => setShowToolsOverlay(true) : undefined}
+        onHistoryClick={location.pathname === '/chat' ? () => setShowHistoryOverlay(true) : undefined}
+        onToolsClick={location.pathname === '/chat' ? () => setShowToolsOverlay(true) : undefined}
       />
       {isChatPage && showToolsOverlay && (
         <ToolsOverlay
@@ -58,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
       <main className={`flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-[64px] ${isChatPage || isSettingsPage ? 'pt-0' : 'pt-2.5'} sm:pb-[64px]`}>
         {children}
       </main>
-      <nav className="fixed bottom-0 left-0 right-0 z-20 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-[var(--secondary-color)] py-3 px-6 shadow-t flex justify-around items-center">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 bg-[var(--background-primary)] dark:bg-[var(--background-primary)] border-t border-[var(--secondary-color)] py-3 px-6 shadow-t flex justify-around items-center">
         <button 
           onClick={() => navigate('/chat')}
           className={`flex flex-col items-center ${getActiveClass('/chat')}`}

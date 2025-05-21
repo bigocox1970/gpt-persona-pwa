@@ -457,6 +457,7 @@ const SettingsManager: React.FC = () => {
   }, []);
   
   const handleLanguageChange = useCallback((language: string) => {
+    console.log('[DEBUG] handleLanguageChange called with:', language);
     setSelectedLanguage(language);
   }, []);
   
@@ -497,6 +498,10 @@ const SettingsManager: React.FC = () => {
         initialLanguage={selectedLanguage}
         onLanguageChange={handleLanguageChange}
       />
+      {/* Debug: Show selectedLanguage */}
+      <div className="mt-2 text-xs text-red-500">
+        <strong>DEBUG:</strong> STT language code: {selectedLanguage}
+      </div>
       
       {/* Save Button */}
       <div className="mt-6">

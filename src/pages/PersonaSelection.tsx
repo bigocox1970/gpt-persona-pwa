@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePersona } from '../contexts/PersonaContext';
 import { ChevronLeft, ChevronRight, MessageSquare, ArrowRight } from 'lucide-react';
 import type { Persona } from '../contexts/PersonaContext';
@@ -47,6 +47,10 @@ const WelcomeCard: React.FC<{ onContinue: () => void }> = ({ onContinue }) => (
 
 const PersonaSelection: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Check for ?next=/classic-chat in the query string
+  const params = new URLSearchParams(location.search);
+  const nextRoute = params.get("next");
   const { personas, selectPersona } = usePersona();
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -106,7 +110,11 @@ const PersonaSelection: React.FC = () => {
 
   const handleSelect = (persona: Persona) => {
     selectPersona(persona);
-    navigate('/chat');
+    if (nextRoute) {
+      navigate(nextRoute);
+    } else {
+      navigate('/chat');
+    }
   };
 
   if (!personas.length) return null;

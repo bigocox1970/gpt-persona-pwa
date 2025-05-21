@@ -44,20 +44,16 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
   // Detect iOS (iPhone/iPad)
   const isIOS = typeof window !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  // On iOS, always force OpenAI TTS and disallow browser fallback
-  const [useOpenAITTS, setUseOpenAITTS] = useState<boolean>(isIOS ? true : openaiTTS);
+  // Allow user to choose OpenAI TTS or browser TTS on iOS, but warn about quality
+  const [useOpenAITTS, setUseOpenAITTS] = useState<boolean>(openaiTTS);
   const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState<string>(openaiVoice);
   const [selectedOpenAIModel, setSelectedOpenAIModel] = useState<string>(openaiModel);
-  const [allowFallback, setAllowFallback] = useState<boolean>(isIOS ? false : allowBrowserFallback);
+  const [allowFallback, setAllowFallback] = useState<boolean>(allowBrowserFallback);
   
   // Update state when props change
   useEffect(() => {
-    if (isIOS) {
-      setUseOpenAITTS(true);
-    } else {
-      setUseOpenAITTS(openaiTTS);
-    }
-  }, [openaiTTS, isIOS]);
+    setUseOpenAITTS(openaiTTS);
+  }, [openaiTTS]);
   
   useEffect(() => {
     setSelectedOpenAIVoice(openaiVoice);
@@ -242,14 +238,18 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
             checked={useOpenAITTS}
             onChange={handleOpenAITTSChange}
             className="mr-2 h-4 w-4"
-            disabled={isIOS}
           />
           <label htmlFor="openai-tts-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Use OpenAI Text-to-Speech
           </label>
-          {isIOS && (
-            <span className="ml-2 text-xs text-red-500 font-semibold">
-              (Required on iPhone/iPad for best quality)
+          {isIOS && !useOpenAITTS && (
+            <span className="ml-2 text-xs text-yellow-600 font-semibold">
+              (Browser TTS is low quality on iPhone/iPad)
+            </span>
+          )}
+          {isIOS && useOpenAITTS && (
+            <span className="ml-2 text-xs text-green-700 font-semibold">
+              (Recommended for best quality on iPhone/iPad)
             </span>
           )}
         </div>
@@ -264,14 +264,13 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
                 checked={allowFallback}
                 onChange={handleBrowserFallbackChange}
                 className="mr-2 h-4 w-4"
-                disabled={isIOS}
               />
               <label htmlFor="browser-fallback-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Allow browser TTS fallback if OpenAI fails
               </label>
               {isIOS && (
-                <span className="ml-2 text-xs text-red-500 font-semibold">
-                  (Disabled on iPhone/iPad due to poor quality)
+                <span className="ml-2 text-xs text-yellow-600 font-semibold">
+                  (Browser fallback is low quality on iPhone/iPad)
                 </span>
               )}
             </div>
@@ -316,9 +315,9 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
             >
               Test OpenAI Voice
             </button>
-            {isIOS && (
+            {isIOS && useOpenAITTS && (
               <div className="mt-2 text-xs text-yellow-600 font-semibold">
-                OpenAI TTS is always used on iPhone/iPad for best quality. Browser fallback is disabled.
+                OpenAI TTS is recommended for best quality on iPhone/iPad. Browser fallback is available but may sound robotic or unnatural.
               </div>
             )}
           </div>

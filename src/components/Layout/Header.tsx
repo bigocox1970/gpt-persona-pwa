@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ title, showPersona = false, persona, on
   const location = useLocation();
   const isChatPage = location.pathname === '/chat';
   return (
-    <header className="sticky top-0 z-20 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] shadow-sm py-2 px-6 flex items-center justify-between min-h-[64px]">
+    <header className="sticky top-0 z-20 bg-[var(--background-primary)] shadow-sm py-3 px-6 flex items-center justify-between min-h-[64px]">
       {showPersona && persona ? (
         <>
           <div className="flex items-center">
