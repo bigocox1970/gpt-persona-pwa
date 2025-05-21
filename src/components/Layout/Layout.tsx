@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, User, Settings, PenTool as Tool, History } from 'lucide-react';
+import { MessageSquare, User, Settings, PenTool as Tool, History, RefreshCw } from 'lucide-react';
 import { usePersona } from '../../contexts/PersonaContext';
 import Header from './Header';
 import ToolsOverlay from '../../tools/ToolsOverlay';
@@ -93,6 +93,13 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
         >
           <Settings className="h-6 w-6" />
           <span className="text-xs mt-1">Settings</span>
+        </button>
+        <button 
+          onClick={() => navigate('/classic-chat')}
+          className={`flex flex-col items-center ${getActiveClass('/classic-chat')}`}
+        >
+          <RefreshCw className="h-6 w-6" />
+          <span className="text-xs mt-1">Classic</span>
         </button>
       </nav>
     </div>

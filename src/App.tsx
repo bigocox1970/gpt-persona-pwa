@@ -14,6 +14,7 @@ import NotesPage from './tools/Notes/NotesPage';
 import TodosPage from './tools/Todos/TodosPage';
 import ToolsPage from './tools/ToolsPage';
 import ChatHistory from './pages/ChatHistory';
+import ClassicChatInterface from './components/Chat/ClassicChatInterface';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -103,6 +104,16 @@ function AppRoutes() {
             <ProtectedRoute>
               <Layout onToolsClick={() => navigate('/tools')}>
                 <ChatHistory />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/classic-chat" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={() => navigate('/tools')}>
+                <ClassicChatInterface />
               </Layout>
             </ProtectedRoute>
           }
