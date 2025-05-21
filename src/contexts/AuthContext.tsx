@@ -40,6 +40,7 @@ interface AuthContextType {
   updateUserProfile: (name: string) => Promise<void>;
   saveUserSettings: (settings: UserSettings) => Promise<void>;
   getUserSettings: () => UserSettings | undefined;
+  fetchUserSettings: () => Promise<UserSettings | undefined>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -53,6 +54,7 @@ const AuthContext = createContext<AuthContextType>({
   updateUserProfile: async () => {},
   saveUserSettings: async () => {},
   getUserSettings: () => undefined,
+  fetchUserSettings: async () => undefined,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -265,6 +267,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return undefined;
   };
 
+  const fetchUserSettings = async (): Promise<UserSettings | undefined> => {
+    if (!user) return undefined;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      // Update local user state with fresh settings
+      setUser(prev => prev ? {...prev, settings: data} : null);
+      return data;
+    } catch (error) {
+      console.error('Error fetching user settings:', error);
+      return undefined;
+    }
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
@@ -276,6 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateUserProfile,
     saveUserSettings,
     getUserSettings,
+    fetchUserSettings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

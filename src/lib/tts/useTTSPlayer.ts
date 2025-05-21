@@ -7,6 +7,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 
 export function useTTSPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Clean up audio on unmount
@@ -19,7 +20,7 @@ export function useTTSPlayer() {
   }, []);
 
   // Stop audio playback and clean up resources
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
     if (audioRef.current) {
       try {
         // Stop playback
@@ -44,6 +45,16 @@ export function useTTSPlayer() {
           audioRef.current.src = '';
         }
         
+        // Clean up existing audio context
+        if (audioContextRef.current) {
+          try {
+            await audioContextRef.current.close();
+            audioContextRef.current = null;
+          } catch (err) {
+            console.error('Error cleaning up audio context:', err);
+          }
+        }
+        
         setIsPlaying(false);
       } catch (e) {
         console.error('Error stopping audio:', e);
@@ -58,24 +69,58 @@ export function useTTSPlayer() {
       // Stop any currently playing audio and ensure cleanup
       stop();
 
-      // Small delay to ensure audio context is fully cleaned up
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Clean up any existing audio context
+      if (audioContextRef.current) {
+        try {
+          await audioContextRef.current.close();
+          audioContextRef.current = null;
+        } catch (err) {
+          console.error('Error cleaning up audio context:', err);
+        }
+      }
+
+      // Wait for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Create a URL for the blob
       const url = URL.createObjectURL(blob);
       
-      // Create a new audio element
+      // Create a new audio element with high priority
       const audio = new Audio();
+      audio.preload = 'auto';
+      
+      // Initialize audio context and connect it
+      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextImpl();
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaElementSource(audio);
+      source.connect(audioContext.destination);
       
       // Set up event handlers before setting source
-      audio.onplay = () => setIsPlaying(true);
+      audio.onplay = () => {
+        setIsPlaying(true);
+        // Resume audio context if suspended
+        if (audioContextRef.current?.state === 'suspended') {
+          audioContextRef.current.resume();
+        }
+      };
       audio.onended = () => {
         setIsPlaying(false);
+        // Clean up audio context
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(console.error);
+          audioContextRef.current = null;
+        }
         stop(); // Ensure cleanup on end
       };
       audio.onerror = (e) => {
         console.error('Audio playback error:', e);
         setIsPlaying(false);
+        // Clean up audio context
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(console.error);
+          audioContextRef.current = null;
+        }
         stop(); // Ensure cleanup on error
       };
       

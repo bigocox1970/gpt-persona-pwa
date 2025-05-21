@@ -19,13 +19,14 @@ self.addEventListener("install", (event) => {
 
 // Cache and return requests
 self.addEventListener("fetch", (event) => {
+  // Bypass cache for settings-related API calls
+  if (event.request.url.includes('/user-settings')) {
+    return fetch(event.request);
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Cache hit - return response
-      if (response) {
-        return response;
-      }
-      return fetch(event.request);
+      return response || fetch(event.request);
     })
   );
 });

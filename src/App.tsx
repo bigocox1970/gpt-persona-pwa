@@ -115,6 +115,57 @@ function AppRoutes() {
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { getUserSettings, fetchUserSettings } = useAuth();
+  
+  // Refresh settings when app becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUserSettings();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchUserSettings]);
+
+  // Initialize settings on app load
+  useEffect(() => {
+    const initializeSettings = async () => {
+      try {
+        // Load settings from Supabase
+        const userSettings = getUserSettings();
+        if (userSettings) {
+          // Initialize theme settings
+          if (userSettings.theme) {
+            localStorage.setItem('activePalette', String(userSettings.theme.activePalette));
+          }
+
+          // Initialize TTS settings
+          if (userSettings.tts) {
+            localStorage.setItem('tts_settings', JSON.stringify({
+              useOpenAI: userSettings.tts.openaiTTS,
+              openaiVoice: userSettings.tts.openaiVoice,
+              openaiModel: userSettings.tts.openaiModel,
+              rate: userSettings.tts.rate,
+              pitch: userSettings.tts.pitch
+            }));
+          }
+
+          // Initialize STT settings
+          if (userSettings.stt) {
+            localStorage.setItem('stt_settings', JSON.stringify({
+              language: userSettings.stt.language
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing settings:', error);
+      }
+    };
+
+    initializeSettings();
+  }, [getUserSettings]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {

@@ -87,34 +87,25 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
         console.log('[VOICE CHANGE] Setting voice to null');
         setSelectedVoice(null);
         onVoiceChange(null);
-        
-        // Force a re-render to ensure the UI updates
-        setTimeout(() => {
-          console.log('[VOICE CHANGE] Forced update after setting voice to null');
-        }, 0);
         return;
       }
       
       // Find the selected voice in the available voices
       const voice = voices.find(v => v.voiceURI === voiceURI);
       
-      if (voice) {
-        // Immediately update the selected voice state
-        console.log('[VOICE CHANGE] Setting selected voice to:', voice.name);
-        setSelectedVoice(voice);
-        
-        // Call the callback with a slight delay to ensure state is updated
-        setTimeout(() => {
-          console.log('[VOICE CHANGE] Calling onVoiceChange callback with:', voice.name);
-          onVoiceChange(voice);
-        }, 0);
-        
-        // Speak a test phrase with the new voice
-        speak('This is a test of the selected voice.', { voice });
-      } else {
+      if (!voice) {
         console.error('[VOICE CHANGE] Could not find voice with URI:', voiceURI);
         alert('Error: Could not find the selected voice. Please try another voice.');
+        return;
       }
+      
+      // Immediately update the selected voice state
+      console.log('[VOICE CHANGE] Setting selected voice to:', voice.name);
+      setSelectedVoice(voice);
+      
+      // Call the callback and test the voice
+      onVoiceChange(voice);
+      speak('This is a test of the selected voice.', { voice });
     } catch (error) {
       console.error('[VOICE CHANGE] Error changing voice:', error);
       alert('An error occurred while changing voices. Please try again.');
@@ -136,13 +127,49 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
   }, [onPitchChange]);
   
   // Handle OpenAI TTS toggle
-  const handleOpenAITTSChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenAITTSChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const enabled = e.target.checked;
+    
+    // Stop any ongoing speech synthesis
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // Wait for any audio contexts to be cleaned up
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      // Release any existing audio contexts
+      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextImpl) {
+        const tempContext = new AudioContextImpl();
+        await tempContext.close().catch(err => {
+          console.error('Error closing audio context:', err);
+        });
+      }
+    } catch (err) {
+      console.error('Error cleaning up audio context:', err);
+    }
+    
+    // Wait a bit more before enabling the new mode
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     setUseOpenAITTS(enabled);
     if (onOpenAITTSChange) {
       onOpenAITTSChange(enabled);
     }
-  }, [onOpenAITTSChange]);
+    
+    // Test the new mode
+    if (enabled) {
+      return speak('Switched to OpenAI Text-to-Speech.', {
+        useOpenAI: true,
+        openaiVoice: selectedOpenAIVoice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy",
+        openaiModel: selectedOpenAIModel as "tts-1" | "tts-1-hd"
+      });
+    } else if (selectedVoice) {
+      return speak('Switched to browser Text-to-Speech.', { voice: selectedVoice });
+    }
+  }, [onOpenAITTSChange, speak, selectedOpenAIVoice, selectedOpenAIModel, selectedVoice]);
   
   // Handle OpenAI voice change
   const handleOpenAIVoiceChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -161,10 +188,31 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
       onOpenAIModelChange(model);
     }
   }, [onOpenAIModelChange]);
+
+  // Handle test voice
+  const handleTestVoice = useCallback(() => {
+    if (selectedVoice) {
+      speak('This is a test of the selected voice.', { voice: selectedVoice });
+    }
+  }, [selectedVoice, speak]);
+
+  // Handle browser fallback toggle
+  const handleBrowserFallbackChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setAllowFallback(checked);
+    if (onAllowBrowserFallbackChange) {
+      onAllowBrowserFallbackChange(checked);
+    }
+    // Test the fallback
+    return speak('Testing browser fallback.', {
+      useOpenAI: true,
+      allowBrowserFallback: checked
+    });
+  }, [onAllowBrowserFallbackChange, speak]);
   
   // Test OpenAI voice
   const testOpenAIVoice = useCallback(() => {
-    speak('This is a test of the selected OpenAI voice.', { 
+    return speak('This is a test of the selected OpenAI voice.', { 
       useOpenAI: true,
       openaiVoice: selectedOpenAIVoice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy",
       openaiModel: selectedOpenAIModel as "tts-1" | "tts-1-hd",
@@ -202,17 +250,7 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
                 type="checkbox"
                 id="browser-fallback-toggle"
                 checked={allowFallback}
-                onChange={(e) => {
-                  setAllowFallback(e.target.checked);
-                  if (onAllowBrowserFallbackChange) {
-                    onAllowBrowserFallbackChange(e.target.checked);
-                  }
-                  // Test the fallback
-                  speak('Testing browser fallback.', {
-                    useOpenAI: true,
-                    allowBrowserFallback: e.target.checked
-                  });
-                }}
+                onChange={handleBrowserFallbackChange}
                 className="mr-2 h-4 w-4"
               />
               <label htmlFor="browser-fallback-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -292,7 +330,7 @@ const VoiceSettings: React.FC<VoiceSettingsProps> = ({
             </select>
             <button
               type="button"
-              onClick={() => selectedVoice && speak('This is a test of the selected voice.', { voice: selectedVoice })}
+              onClick={handleTestVoice}
               className="btn text-sm py-1.5"
               disabled={!selectedVoice}
             >

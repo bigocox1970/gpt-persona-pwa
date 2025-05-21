@@ -1,9 +1,12 @@
-fix: improve STT microphone handling to restore voice recognition sensitivity
+fix: load TTS settings from Supabase and keep them in sync
 
-- Request microphone permissions upfront before initializing recognition
-- Keep media stream alive between recognition sessions
-- Only stop media stream on fatal errors or cleanup
-- Remove redundant stream management from onstart handler
-- Ensure continuous microphone access for better recognition
+- Add Supabase as primary source for TTS settings
+- Add periodic check for settings updates
+- Keep localStorage as fallback
+- Add useAuth hook integration
+- Ensure OpenAI TTS settings are properly loaded
+- Add better error handling and logging
 
-This fixes an issue where the browser's Speech-to-Text functionality had reduced sensitivity by maintaining a consistent microphone stream instead of repeatedly stopping and starting it.
+The app should now properly load and maintain TTS settings
+from Supabase, ensuring consistent voice settings across
+all pages without requiring settings page visits.
