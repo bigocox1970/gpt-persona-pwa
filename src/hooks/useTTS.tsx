@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { fetchTTS } from '../lib/tts/openaiTTS';
 import { useTTSPlayer } from '../lib/tts/useTTSPlayer';
+import { useAuth } from '../contexts/AuthContext';
 
 // Declare WebKit interfaces
 declare global {
@@ -23,10 +24,26 @@ const TTS_SETTINGS_KEY = 'tts_settings';
 
 export const useTTS = (defaultOptions?: TTSOptions) => {
   const { playBlob, stop: stopOpenAI, isPlaying } = useTTSPlayer();
+  const { getUserSettings } = useAuth();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
-  // Initialize options from localStorage or defaults
+  // Initialize options from Supabase or defaults
   const [options, setOptions] = useState<TTSOptions>(() => {
+    // Try to get settings from Supabase first
+    const userSettings = getUserSettings();
+    if (userSettings?.tts) {
+      console.log('Loaded TTS settings from Supabase:', userSettings.tts);
+      return {
+        rate: userSettings.tts.rate ?? 1,
+        pitch: userSettings.tts.pitch ?? 1,
+        voice: null, // Voice will be set after loading available voices
+        openaiVoice: userSettings.tts.openaiVoice ?? "nova",
+        openaiModel: userSettings.tts.openaiModel ?? "tts-1",
+        useOpenAI: userSettings.tts.openaiTTS ?? true // Default to true if not set
+      };
+    }
+    
+    // If no Supabase settings, try localStorage
     try {
       const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
       if (savedSettings) {
@@ -35,14 +52,14 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         return {
           rate: parsed.rate ?? 1,
           pitch: parsed.pitch ?? 1,
-          voice: null, // Voice will be set after loading available voices
+          voice: null,
           openaiVoice: parsed.openaiVoice ?? "nova",
           openaiModel: parsed.openaiModel ?? "tts-1",
-          useOpenAI: parsed.useOpenAI ?? false
+          useOpenAI: parsed.useOpenAI ?? true
         };
       }
     } catch (error) {
-      console.error('Error loading TTS settings:', error);
+      console.error('Error loading TTS settings from localStorage:', error);
     }
     
     // Default settings - make OpenAI TTS the default
@@ -58,57 +75,74 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     return defaults;
   });
 
-  // Force initialize settings from localStorage or set defaults
+  // Force initialize settings from Supabase
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
-      let settings;
-      
-      if (savedSettings) {
-        // If we have saved settings, parse them
-        const parsed = JSON.parse(savedSettings);
-        console.log('Found saved TTS settings:', parsed);
+    const initializeSettings = () => {
+      try {
+        // Try to get settings from Supabase
+        const userSettings = getUserSettings();
+        if (userSettings?.tts) {
+          console.log('Force initializing TTS settings from Supabase:', userSettings.tts);
+          
+          const settings = {
+            rate: userSettings.tts.rate ?? 1,
+            pitch: userSettings.tts.pitch ?? 1,
+            openaiVoice: userSettings.tts.openaiVoice ?? "nova",
+            openaiModel: userSettings.tts.openaiModel ?? "tts-1",
+            useOpenAI: userSettings.tts.openaiTTS ?? true
+          };
+          
+          // Update options immediately
+          setOptions(prev => ({
+            ...prev,
+            ...settings
+          }));
+          
+          // Also save to localStorage as fallback
+          localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(settings));
+          
+          return;
+        }
         
-        // Only use useOpenAI: false if it was explicitly set to false
-        const useOpenAI = parsed.useOpenAI === false ? false : true;
-        
-        settings = {
-          rate: parsed.rate ?? 1,
-          pitch: parsed.pitch ?? 1,
-          openaiVoice: parsed.openaiVoice ?? "nova",
-          openaiModel: parsed.openaiModel ?? "tts-1",
-          useOpenAI
-        };
-      } else {
-        // If no saved settings, use defaults with OpenAI enabled
-        settings = {
-          rate: 1,
-          pitch: 1,
-          openaiVoice: "nova",
-          openaiModel: "tts-1",
+        // If no Supabase settings, try localStorage
+        const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+        if (savedSettings) {
+          const parsed = JSON.parse(savedSettings);
+          console.log('Force initializing TTS settings from localStorage:', parsed);
+          
+          // Only use useOpenAI: false if it was explicitly set to false
+          const useOpenAI = parsed.useOpenAI === false ? false : true;
+          
+          const settings = {
+            rate: parsed.rate ?? 1,
+            pitch: parsed.pitch ?? 1,
+            openaiVoice: parsed.openaiVoice ?? "nova",
+            openaiModel: parsed.openaiModel ?? "tts-1",
+            useOpenAI
+          };
+          
+          // Update options immediately
+          setOptions(prev => ({
+            ...prev,
+            ...settings
+          }));
+        }
+      } catch (error) {
+        console.error('Error force initializing TTS settings:', error);
+        // On error, ensure we still default to OpenAI
+        setOptions(prev => ({
+          ...prev,
           useOpenAI: true
-        };
+        }));
       }
-      
-      console.log('Initializing TTS with settings:', settings);
-      
-      // Save settings to localStorage
-      localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(settings));
-      
-      // Update options immediately
-      setOptions(prev => ({
-        ...prev,
-        ...settings
-      }));
-    } catch (error) {
-      console.error('Error initializing TTS settings:', error);
-      // On error, ensure we still default to OpenAI
-      setOptions(prev => ({
-        ...prev,
-        useOpenAI: true
-      }));
-    }
-  }, []); // Run once on mount
+    };
+    
+    // Initialize immediately and set up an interval to check for updates
+    initializeSettings();
+    const interval = setInterval(initializeSettings, 1000); // Check every second
+    
+    return () => clearInterval(interval);
+  }, [getUserSettings]); // Run when getUserSettings changes
 
   // Load voices and initialize settings
   useEffect(() => {
