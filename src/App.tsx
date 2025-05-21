@@ -28,39 +28,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [showTools, setShowTools] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-  const [showTodos, setShowTodos] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  // Store the previous location before opening tools
-  const [previousLocation, setPreviousLocation] = useState<string | null>(null);
-
-  const handleToolsClick = () => {
-    // Store current location before showing tools
-    setPreviousLocation(location.pathname);
-    // Show tools overlay
-    setShowTools(true);
-    setShowNotes(false);
-    setShowTodos(false);
-    setShowHistory(false);
-  };
-
-  const handleClose = () => {
-    // Close all tool overlays
-    setShowTools(false);
-    setShowNotes(false);
-    setShowTodos(false);
-    setShowHistory(false);
-    
-    // If we have a previous location stored, navigate back to it
-    if (previousLocation) {
-      navigate(previousLocation);
-    }
-  };
-  
-
 
   return (
     <>
@@ -70,7 +38,7 @@ function AppRoutes() {
           path="/" 
           element={
             <ProtectedRoute>
-              <Layout onToolsClick={handleToolsClick}>
+              <Layout onToolsClick={() => navigate('/tools')}>
                 <PersonaSelection />
               </Layout>
             </ProtectedRoute>
@@ -80,7 +48,7 @@ function AppRoutes() {
           path="/chat" 
           element={
             <ProtectedRoute>
-              <Layout onToolsClick={handleToolsClick}>
+              <Layout onToolsClick={() => navigate('/tools')}>
                 <Chat />
               </Layout>
             </ProtectedRoute>
@@ -90,33 +58,57 @@ function AppRoutes() {
           path="/settings" 
           element={
             <ProtectedRoute>
-              <Layout onToolsClick={handleToolsClick}>
+              <Layout onToolsClick={() => navigate('/tools')}>
                 <Settings />
               </Layout>
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/tools" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={() => navigate('/tools')}>
+                <ToolsPage 
+                  onSelectNotes={() => navigate('/notes')}
+                  onSelectTodos={() => navigate('/todos')}
+                />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/notes" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={() => navigate('/tools')}>
+                <NotesPage onClose={() => navigate(-1)} />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/todos" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={() => navigate('/tools')}>
+                <TodosPage onClose={() => navigate(-1)} />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/history" 
+          element={
+            <ProtectedRoute>
+              <Layout onToolsClick={() => navigate('/tools')}>
+                <ChatHistory />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-
-      {showTools && <ToolsPage 
-        onClose={handleClose} 
-        onSelectNotes={() => {
-          setShowTools(false);
-          setShowNotes(true);
-        }} 
-        onSelectTodos={() => {
-          setShowTools(false);
-          setShowTodos(true);
-        }}
-        onSelectHistory={() => {
-          setShowTools(false);
-          setShowHistory(true);
-        }}
-      />}
-      {showNotes && <NotesPage onClose={handleClose} />}
-      {showTodos && <TodosPage onClose={handleClose} />}
-      {showHistory && <ChatHistory onClose={handleClose} />}
     </>
   );
 }

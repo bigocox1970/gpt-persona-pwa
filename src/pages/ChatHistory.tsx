@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { usePersona } from '../contexts/PersonaContext';
 import { useNavigate } from 'react-router-dom';
-import { X, MessageSquare, Calendar, ArrowRight } from 'lucide-react';
+import { MessageSquare, Calendar, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ChatSession {
@@ -27,7 +27,7 @@ interface ChatSession {
   }[];
 }
 
-const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const ChatHistory: React.FC = () => {
   const { user } = useAuth();
   const { selectChatSession } = usePersona();
   const navigate = useNavigate();
@@ -76,103 +76,78 @@ const ChatHistory: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   const handleChatSelect = (session: ChatSession) => {
-    console.log('Selecting chat session:', session.id, 'with persona:', session.persona_id);
-    
-    // First close the modal to prevent any interference with navigation
-    onClose();
-    
-    // Select the chat session
     selectChatSession(session.id, session.persona_id);
-    
-    // Use a slight delay to ensure the context is updated before navigation
     setTimeout(() => {
-      console.log('Navigating to chat page');
       navigate('/chat', { replace: true });
     }, 50);
   };
 
   return (
-    <div className="fixed inset-0 bg-[var(--text-primary)]/50 z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col"
-      >
-        <div className="p-4 border-b border-[var(--secondary-color)] flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Chat History</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[var(--primary-color)]/10 rounded-full"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary-color)]"></div>
-            </div>
-          ) : error ? (
-            <div className="text-center text-[var(--error-color)] p-4">{error}</div>
-          ) : chatSessions.length === 0 ? (
-            <div className="text-center text-[var(--text-secondary)] p-4">
-              No chat history found
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {chatSessions.map((session) => (
-                <motion.div
-                  key={session.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 group"
-                  onClick={() => handleChatSelect(session)}
-                >
-                  <div className="flex items-start p-4">
-                    <img
-                      src={session.persona.image_url}
-                      alt={session.persona.name}
-                      className="w-16 h-16 rounded-full object-cover mr-4"
-                    />
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">
-                        {session.persona.name}
-                      </h3>
-                      <p className="text-sm text-[var(--text-secondary)] mb-2">
-                        {session.persona.title}
-                      </p>
-                      <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          {format(new Date(session.created_at), 'MMM d, yyyy')}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageSquare size={14} />
-                          {session.messages.length} messages
-                        </span>
-                      </div>
+    <div className="max-w-3xl mx-auto w-full pt-2.5 px-4">
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary-color)]"></div>
+          </div>
+        ) : error ? (
+          <div className="text-center text-[var(--error-color)] p-4">{error}</div>
+        ) : chatSessions.length === 0 ? (
+          <div className="text-center text-[var(--text-secondary)] p-4">
+            No chat history found
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {chatSessions.map((session) => (
+              <motion.div
+                key={session.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 group"
+                onClick={() => handleChatSelect(session)}
+              >
+                <div className="flex items-start p-4">
+                  <img
+                    src={session.persona.image_url}
+                    alt={session.persona.name}
+                    className="w-16 h-16 rounded-full object-cover mr-4"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-1 text-[var(--text-primary)]">
+                      {session.persona.name}
+                    </h3>
+                    <p className="text-sm text-[var(--text-secondary)] mb-2">
+                      {session.persona.title}
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={14} />
+                        {format(new Date(session.created_at), 'MMM d, yyyy')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MessageSquare size={14} />
+                        {session.messages.length} messages
+                      </span>
                     </div>
                   </div>
-                  <div className="border-t border-[var(--secondary-color)] p-4 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] relative">
-                    <p className="text-sm text-[var(--text-primary)] pr-8">
-                      {formatMessagePreview(session.messages)}
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-2">
-                      Last message: {format(new Date(session.last_message_at), 'MMM d, yyyy h:mm a')}
-                    </p>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <div className="p-2 rounded-full bg-[var(--primary-color)] text-white">
-                        <ArrowRight size={16} />
-                      </div>
+                </div>
+                <div className="border-t border-[var(--secondary-color)] p-4 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] relative">
+                  <p className="text-sm text-[var(--text-primary)] pr-8">
+                    {formatMessagePreview(session.messages)}
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-2">
+                    Last message: {format(new Date(session.last_message_at), 'MMM d, yyyy h:mm a')}
+                  </p>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="p-2 rounded-full bg-[var(--primary-color)] text-white">
+                      <ArrowRight size={16} />
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

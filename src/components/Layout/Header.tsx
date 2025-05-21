@@ -1,5 +1,5 @@
 import React from 'react';
-import { History } from 'lucide-react';
+import { History, PenTool } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 interface PersonaInfo {
@@ -13,9 +13,10 @@ interface HeaderProps {
   showPersona?: boolean;
   persona?: PersonaInfo | null;
   onHistoryClick?: () => void;
+  onToolsClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, showPersona = false, persona, onHistoryClick }) => {
+const Header: React.FC<HeaderProps> = ({ title, showPersona = false, persona, onHistoryClick, onToolsClick }) => {
   const location = useLocation();
   const isChatPage = location.pathname === '/chat';
   return (
@@ -34,15 +35,28 @@ const Header: React.FC<HeaderProps> = ({ title, showPersona = false, persona, on
             </div>
           </div>
           
-          {/* History icon for chat page */}
-          {isChatPage && onHistoryClick && (
-            <button 
-              onClick={onHistoryClick}
-              className="p-2 rounded-full hover:bg-[var(--background-primary)] hover:bg-opacity-80 transition-colors"
-              aria-label="View chat history"
-            >
-              <History size={22} className="text-[var(--text-primary)]" />
-            </button>
+          {/* History and Tools icons for chat page */}
+          {isChatPage && (
+            <div className="flex items-center gap-2">
+              {onHistoryClick && (
+                <button 
+                  onClick={onHistoryClick}
+                  className="p-2 rounded-full hover:bg-[var(--background-primary)] hover:bg-opacity-80 transition-colors"
+                  aria-label="View chat history"
+                >
+                  <History size={22} className="text-[var(--text-primary)]" />
+                </button>
+              )}
+              {onToolsClick && (
+                <button
+                  onClick={onToolsClick}
+                  className="p-2 rounded-full hover:bg-[var(--background-primary)] hover:bg-opacity-80 transition-colors"
+                  aria-label="Open tools"
+                >
+                  <PenTool size={22} className="text-[var(--text-primary)]" />
+                </button>
+              )}
+            </div>
           )}
         </>
       ) : (

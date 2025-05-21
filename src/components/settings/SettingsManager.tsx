@@ -41,7 +41,7 @@ const findBestMatchingVoice = (
 const SettingsManager: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, updatePassword, updateUserProfile, saveUserSettings, getUserSettings } = useAuth();
-  const { voices, options, updateOptions, speak } = useTTS();
+  const { voices, options, updateOptions } = useTTS();
   const { updateOptions: updateSTTOptions } = useSTT();
   const { isDarkMode } = useTheme();
   
@@ -439,9 +439,7 @@ const SettingsManager: React.FC = () => {
   }, []);
   
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
-      
+    <div className="max-w-2xl mx-auto px-4 pt-2.5">
       {/* Profile Settings */}
       <ProfileSettings
         initialUsername={username}

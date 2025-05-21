@@ -446,11 +446,6 @@ const ChatInterface: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-2 z-10 relative">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
-            <img 
-              src={selectedPersona.image}
-              alt={selectedPersona.name}
-              className="w-24 h-24 rounded-full object-cover mb-4 shadow-lg"
-            />
             <h2 className="text-xl font-bold mb-2">Start a conversation with {selectedPersona.name}</h2>
             <p className="text-gray-500 dark:text-gray-400 max-w-xs">
               Ask a question or start a discussion to engage with {selectedPersona.name.split(' ')[0]}'s unique personality and knowledge.

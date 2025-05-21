@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, User, Settings, PenTool as Tool } from 'lucide-react';
+import { MessageSquare, User, Settings, PenTool as Tool, History } from 'lucide-react';
 import { usePersona } from '../../contexts/PersonaContext';
 import Header from './Header';
-import ChatHistory from '../../pages/ChatHistory';
+import ToolsOverlay from '../../tools/ToolsOverlay';
+import HistoryOverlay from '../../pages/HistoryOverlay';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,7 +15,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedPersona } = usePersona();
-  const [showHistory, setShowHistory] = useState(false);
+  const [showToolsOverlay, setShowToolsOverlay] = useState(false);
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false);
 
   const getActiveClass = (path: string) => {
     return location.pathname === path ? 'text-[var(--primary-color)]' : 'text-[var(--text-secondary)]';
@@ -23,6 +25,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   const getHeaderTitle = () => {
     if (location.pathname === '/settings') return 'Settings';
     if (location.pathname === '/') return 'Choose Your Persona';
+    if (location.pathname === '/history') return 'Chat History';
+    if (location.pathname === '/tools') return 'Tools';
     return '';
   };
 
@@ -30,24 +34,28 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   const isChatPage = location.pathname === '/chat';
   const isSettingsPage = location.pathname === '/settings';
 
-  const handleHistoryClick = () => {
-    setShowHistory(true);
-  };
-
-  const handleHistoryClose = () => {
-    setShowHistory(false);
-  };
-
   return (
     <div className="flex flex-col h-screen bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
       <Header
         showPersona={isChatPage && !!selectedPersona}
         persona={isChatPage ? selectedPersona : undefined}
         title={!isChatPage ? getHeaderTitle() : undefined}
-        onHistoryClick={isChatPage ? handleHistoryClick : undefined}
+        onHistoryClick={isChatPage ? () => setShowHistoryOverlay(true) : undefined}
+        onToolsClick={isChatPage ? () => setShowToolsOverlay(true) : undefined}
       />
-      {showHistory && <ChatHistory onClose={handleHistoryClose} />}
-      <main className={`flex-1 overflow-y-auto pb-[64px] ${isChatPage || isSettingsPage ? 'pt-0' : 'pt-[64px]'} sm:pb-[64px]`}>
+      {isChatPage && showToolsOverlay && (
+        <ToolsOverlay
+          onClose={() => setShowToolsOverlay(false)}
+          onSelectNotes={() => { setShowToolsOverlay(false); navigate('/notes'); }}
+          onSelectTodos={() => { setShowToolsOverlay(false); navigate('/todos'); }}
+        />
+      )}
+      {isChatPage && showHistoryOverlay && (
+        <HistoryOverlay
+          onClose={() => setShowHistoryOverlay(false)}
+        />
+      )}
+      <main className={`flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-[64px] ${isChatPage || isSettingsPage ? 'pt-0' : 'pt-2.5'} sm:pb-[64px]`}>
         {children}
       </main>
       <nav className="fixed bottom-0 left-0 right-0 z-20 bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-[var(--secondary-color)] py-3 px-6 shadow-t flex justify-around items-center">
@@ -57,6 +65,13 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
         >
           <MessageSquare className="h-6 w-6" />
           <span className="text-xs mt-1">Chat</span>
+        </button>
+        <button 
+          onClick={() => navigate('/history')}
+          className={`flex flex-col items-center ${getActiveClass('/history')}`}
+        >
+          <History className="h-6 w-6" />
+          <span className="text-xs mt-1">History</span>
         </button>
         <button 
           onClick={() => navigate('/')}
