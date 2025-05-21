@@ -99,6 +99,20 @@ export const useSTT = (defaultOptions?: STTOptions) => {
 
   // Initialize speech recognition
   useEffect(() => {
+    // Clean up any existing instance first
+    if (recognition) {
+      if (recognition.mediaStream) {
+        recognition.mediaStream.getTracks().forEach(track => track.stop());
+        recognition.mediaStream = undefined;
+      }
+      recognition.onstart = null;
+      recognition.onend = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      setIsListening(false);
+      setError(null);
+    }
+
     let recognitionInstance: ExtendedSpeechRecognition | null = null;
 
     const initializeRecognition = () => {
@@ -226,7 +240,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
         setError(null);
       }
     };
-  }, [options]); // Re-initialize when options change
+  }, [options, error]); // Re-initialize when options change or on error
 
   // Handle microphone permissions
   const ensureMicrophoneAccess = async () => {
@@ -269,21 +283,26 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     }
     
     try {
-      // If already listening, stop first
+      // If already listening, stop and wait for cleanup
       if (isListening) {
         recognition.stop();
-        // Wait for onend event to fire
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for onend event to fire and cleanup to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
-      // Clean up any existing media stream
+      // Force cleanup of any existing media stream
       if (recognition.mediaStream) {
-        recognition.mediaStream.getTracks().forEach(track => track.stop());
+        recognition.mediaStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped media track:', track.kind);
+        });
         recognition.mediaStream = undefined;
       }
       
-      // Reset error state
+      // Reset states
       setError(null);
+      setTranscript('');
+      setFinalTranscript('');
       
       // Ensure we have microphone access first
       const stream = await ensureMicrophoneAccess();
@@ -305,8 +324,10 @@ export const useSTT = (defaultOptions?: STTOptions) => {
         recognition.mediaStream = undefined;
       }
       setIsListening(false);
+      // Force reinitialize on error
+      setOptions(prev => ({...prev}));
     }
-  }, [recognition, isListening, ensureMicrophoneAccess]);
+  }, [recognition, isListening, ensureMicrophoneAccess, setOptions]);
 
   // Update options
   const updateOptions = useCallback((newOptions: Partial<STTOptions>) => {
