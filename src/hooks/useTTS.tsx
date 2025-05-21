@@ -363,56 +363,61 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     setSpeaking(false);
   }, [options.useOpenAI, stopOpenAI]);
 
-  const updateOptions = useCallback(async (newOptions: Partial<TTSOptions>) => {
-    // Reset speech synthesis when switching TTS modes
-    if (newOptions.useOpenAI !== undefined) {
-      setSpeaking(false);
-      stop();
-      
-      // Ensure all audio contexts are properly cleaned up
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        
-        // Force a reset of the speech synthesis engine
-        setTimeout(() => {
-          window.speechSynthesis.resume();
+  // Memoize updateOptions so its reference is stable
+  const updateOptions = useCallback(
+    async (newOptions: Partial<TTSOptions>) => {
+      // Reset speech synthesis when switching TTS modes
+      if (newOptions.useOpenAI !== undefined) {
+        setSpeaking(false);
+        stop();
+
+        // Ensure all audio contexts are properly cleaned up
+        if (window.speechSynthesis) {
           window.speechSynthesis.cancel();
-        }, 100);
-      }
-      
-      // Release any existing audio contexts
-      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextImpl) {
-        try {
-          const tempContext = new AudioContextImpl();
-          await tempContext.close();
-        } catch (err) {
-          console.error('Error cleaning up audio context:', err);
+
+          // Force a reset of the speech synthesis engine
+          setTimeout(() => {
+            window.speechSynthesis.resume();
+            window.speechSynthesis.cancel();
+          }, 100);
+        }
+
+        // Release any existing audio contexts
+        const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextImpl) {
+          try {
+            const tempContext = new AudioContextImpl();
+            await tempContext.close();
+          } catch (err) {
+            console.error('Error cleaning up audio context:', err);
+          }
         }
       }
-    }
 
-    setOptions(prev => {
-      const updated = { ...prev, ...newOptions };
-      
-      // Save to localStorage with explicit voiceURI
-      const saveData = {
-        rate: updated.rate,
-        pitch: updated.pitch,
-        voiceURI: updated.voice?.voiceURI || null,
-        openaiVoice: updated.openaiVoice,
-        openaiModel: updated.openaiModel,
-        useOpenAI: updated.useOpenAI
-      };
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Saving TTS settings to localStorage:', saveData);
-      }
-      localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
-      
-      return updated;
-    });
-  }, [stop]);
+      setOptions(prev => {
+        const updated = { ...prev, ...newOptions };
+
+        // Save to localStorage with explicit voiceURI
+        const saveData = {
+          rate: updated.rate,
+          pitch: updated.pitch,
+          voiceURI: updated.voice?.voiceURI || null,
+          openaiVoice: updated.openaiVoice,
+          openaiModel: updated.openaiModel,
+          useOpenAI: updated.useOpenAI
+        };
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Saving TTS settings to localStorage:', saveData);
+        }
+        localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
+
+        return updated;
+      });
+    },
+    // Only depend on 'stop' and 'setSpeaking', which are both stable from hooks
+    [stop, setSpeaking, setOptions]
+  );
 
   const selectVoice = useCallback((criteria: { name?: string; lang?: string }) => {
     if (!voices.length) return;

@@ -114,12 +114,13 @@ const SettingsManager: React.FC = () => {
   }, [options.voice]);
 
   // Load user settings from Supabase when voices are available
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   useEffect(() => {
-    if (voices.length > 0) {
+    if (voices.length > 0 && !settingsLoaded) {
       const userSettings = getUserSettings();
       if (userSettings) {
         console.log('Loading settings from Supabase:', userSettings);
-        
+
         // Load theme settings
         if (userSettings.theme) {
           if (typeof userSettings.theme.activePalette === 'number') {
@@ -127,50 +128,62 @@ const SettingsManager: React.FC = () => {
             setInitialPalette(userSettings.theme.activePalette);
           }
         }
-        
+
         // Load TTS settings
         if (userSettings.tts) {
           // Find best matching voice
           if (userSettings.tts.voiceLanguage || userSettings.tts.voiceName) {
             console.log('Looking for voice with language:', userSettings.tts.voiceLanguage, 'and name:', userSettings.tts.voiceName);
             const bestMatch = findBestMatchingVoice(voices, userSettings.tts.voiceLanguage, userSettings.tts.voiceName);
-            
+
             if (bestMatch) {
               console.log('Found matching voice:', bestMatch.name);
               setSelectedVoice(bestMatch);
-              updateOptions({ voice: bestMatch });
+              if (!options.voice || options.voice.voiceURI !== bestMatch.voiceURI) {
+                updateOptions({ voice: bestMatch });
+              }
             } else {
               console.error('Could not find matching voice');
             }
           }
-          
+
           if (typeof userSettings.tts.rate === 'number') {
             setSpeechRate(userSettings.tts.rate);
-            updateOptions({ rate: userSettings.tts.rate });
+            if (options.rate !== userSettings.tts.rate) {
+              updateOptions({ rate: userSettings.tts.rate });
+            }
           }
-          
+
           if (typeof userSettings.tts.pitch === 'number') {
             setSpeechPitch(userSettings.tts.pitch);
-            updateOptions({ pitch: userSettings.tts.pitch });
+            if (options.pitch !== userSettings.tts.pitch) {
+              updateOptions({ pitch: userSettings.tts.pitch });
+            }
           }
-          
+
           // Load OpenAI TTS settings
           if (typeof userSettings.tts.openaiTTS === 'boolean') {
             setOpenaiTTS(userSettings.tts.openaiTTS);
-            updateOptions({ useOpenAI: userSettings.tts.openaiTTS });
+            if (options.useOpenAI !== userSettings.tts.openaiTTS) {
+              updateOptions({ useOpenAI: userSettings.tts.openaiTTS });
+            }
           }
-          
+
           if (userSettings.tts.openaiVoice) {
             setOpenaiVoice(userSettings.tts.openaiVoice);
-            updateOptions({ openaiVoice: userSettings.tts.openaiVoice });
+            if (options.openaiVoice !== userSettings.tts.openaiVoice) {
+              updateOptions({ openaiVoice: userSettings.tts.openaiVoice });
+            }
           }
-          
+
           if (userSettings.tts.openaiModel) {
             setOpenaiModel(userSettings.tts.openaiModel);
-            updateOptions({ openaiModel: userSettings.tts.openaiModel });
+            if (options.openaiModel !== userSettings.tts.openaiModel) {
+              updateOptions({ openaiModel: userSettings.tts.openaiModel });
+            }
           }
         }
-        
+
         // Load STT settings
         if (userSettings.stt?.language) {
           setSelectedLanguage(userSettings.stt.language);
@@ -180,8 +193,11 @@ const SettingsManager: React.FC = () => {
           }
         }
       }
+      setSettingsLoaded(true);
     }
-  }, [voices, getUserSettings, updateOptions, updateSTTOptions]);
+    // DO NOT include updateOptions or options in the dependency array to avoid infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voices, getUserSettings, updateSTTOptions, settingsLoaded]);
   
   // Check for unsaved changes
   useEffect(() => {
@@ -301,100 +317,105 @@ const SettingsManager: React.FC = () => {
   }, [updatePassword]);
   
   // Save settings
-  const saveSettings = useCallback(async () => {
-    // First save to localStorage as fallback
-    localStorage.setItem('activePalette', String(activePalette));
-    localStorage.setItem('user_display_name', username);
-    
-    // Save TTS settings to localStorage and update options
-    console.log('Saving voice settings:', {
-      voice: selectedVoice?.name || 'None',
-      rate: speechRate,
-      pitch: speechPitch
-    });
-    
-    // Force a stop of any current speech before updating options
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    
-    // Update TTS options with a slight delay to ensure clean state
-    setTimeout(() => {
-      updateOptions({
-        voice: selectedVoice,
-        rate: speechRate,
-        pitch: speechPitch,
-        useOpenAI: openaiTTS,
-        openaiVoice: openaiVoice,
-        openaiModel: openaiModel
-      });
-      
-      console.log('TTS options updated with:', {
+  const saveSettings = useCallback(
+    async (opts?: { openaiTTSOverride?: boolean }) => {
+      const effectiveOpenaiTTS = opts?.openaiTTSOverride !== undefined ? opts.openaiTTSOverride : openaiTTS;
+
+      // First save to localStorage as fallback
+      localStorage.setItem('activePalette', String(activePalette));
+      localStorage.setItem('user_display_name', username);
+
+      // Save TTS settings to localStorage and update options
+      console.log('Saving voice settings:', {
         voice: selectedVoice?.name || 'None',
-        useOpenAI: openaiTTS,
-        openaiVoice: openaiVoice
+        rate: speechRate,
+        pitch: speechPitch
       });
-    }, 100);
-    
-    // Save STT settings to localStorage
-    if (updateSTTOptions) {
-      updateSTTOptions({ language: selectedLanguage });
-      localStorage.setItem('stt_settings', JSON.stringify({ language: selectedLanguage }));
-    }
-    
-    // Save all settings to Supabase
-    try {
-      // Create settings object with voice preferences instead of exact URI
-      const settings = {
-        theme: {
-          activePalette: activePalette,
-          isDarkMode: isDarkMode === undefined ? false : isDarkMode,
-          customColors: Object.keys(customColors).length > 0 ? customColors : undefined
-        },
-        tts: {
-          voiceLanguage: selectedVoice?.lang,
-          voiceName: selectedVoice?.name,
-          voiceGender: selectedVoice?.name?.toLowerCase().includes('female') ? 'female' : 'male',
+
+      // Force a stop of any current speech before updating options
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      // Update TTS options with a slight delay to ensure clean state
+      setTimeout(() => {
+        updateOptions({
+          voice: selectedVoice,
           rate: speechRate,
           pitch: speechPitch,
-          openaiTTS: openaiTTS,
+          useOpenAI: effectiveOpenaiTTS,
           openaiVoice: openaiVoice,
           openaiModel: openaiModel
-        },
-        stt: {
-          language: selectedLanguage
-        }
-      };
-      
-      // Save settings to Supabase
-      await saveUserSettings(settings);
-      
-      // Update user profile if username changed
-      if (username !== initialUsername) {
-        await updateUserProfile(username);
+        });
+
+        console.log('TTS options updated with:', {
+          voice: selectedVoice?.name || 'None',
+          useOpenAI: effectiveOpenaiTTS,
+          openaiVoice: openaiVoice
+        });
+      }, 100);
+
+      // Save STT settings to localStorage
+      if (updateSTTOptions) {
+        updateSTTOptions({ language: selectedLanguage });
+        localStorage.setItem('stt_settings', JSON.stringify({ language: selectedLanguage }));
       }
-      
-      // Update initial values to reflect saved state
-      setInitialUsername(username);
-      setInitialPalette(activePalette);
-      setInitialDarkMode(isDarkMode);
-      setInitialLanguage(selectedLanguage);
-      
-      // Clear unsaved changes flag
-      setHasUnsavedChanges(false);
-      
-      console.log('Settings saved successfully');
-    } catch (error) {
-      console.error('Failed to save settings to database:', error);
-      alert('There was an error saving your settings to the cloud. Your settings are saved locally but may not sync across devices.');
-    }
-  }, [
-    activePalette, username, selectedVoice, 
-    speechRate, speechPitch, selectedLanguage, 
-    initialUsername, updateOptions, updateSTTOptions, 
-    saveUserSettings, updateUserProfile, isDarkMode,
-    openaiTTS, openaiVoice, openaiModel, customColors
-  ]);
+
+      // Save all settings to Supabase
+      try {
+        // Create settings object with voice preferences instead of exact URI
+        const settings = {
+          theme: {
+            activePalette: activePalette,
+            isDarkMode: isDarkMode === undefined ? false : isDarkMode,
+            customColors: Object.keys(customColors).length > 0 ? customColors : undefined
+          },
+          tts: {
+            voiceLanguage: selectedVoice?.lang,
+            voiceName: selectedVoice?.name,
+            voiceGender: selectedVoice?.name?.toLowerCase().includes('female') ? 'female' : 'male',
+            rate: speechRate,
+            pitch: speechPitch,
+            openaiTTS: effectiveOpenaiTTS,
+            openaiVoice: openaiVoice,
+            openaiModel: openaiModel
+          },
+          stt: {
+            language: selectedLanguage
+          }
+        };
+
+        // Save settings to Supabase
+        await saveUserSettings(settings);
+
+        // Update user profile if username changed
+        if (username !== initialUsername) {
+          await updateUserProfile(username);
+        }
+
+        // Update initial values to reflect saved state
+        setInitialUsername(username);
+        setInitialPalette(activePalette);
+        setInitialDarkMode(isDarkMode);
+        setInitialLanguage(selectedLanguage);
+
+        // Clear unsaved changes flag
+        setHasUnsavedChanges(false);
+
+        console.log('Settings saved successfully');
+      } catch (error) {
+        console.error('Failed to save settings to database:', error);
+        alert('There was an error saving your settings to the cloud. Your settings are saved locally but may not sync across devices.');
+      }
+    },
+    [
+      activePalette, username, selectedVoice,
+      speechRate, speechPitch, selectedLanguage,
+      initialUsername, updateOptions, updateSTTOptions,
+      saveUserSettings, updateUserProfile, isDarkMode,
+      openaiTTS, openaiVoice, openaiModel, customColors
+    ]
+  );
   
   // Handle component changes
   const handleUsernameChange = useCallback((name: string) => {
@@ -424,7 +445,8 @@ const SettingsManager: React.FC = () => {
   
   const handleOpenAITTSChange = useCallback((enabled: boolean) => {
     setOpenaiTTS(enabled);
-  }, []);
+    saveSettings({ openaiTTSOverride: enabled });
+  }, [saveSettings]);
   
   const handleOpenAIVoiceChange = useCallback((voice: string) => {
     setOpenaiVoice(voice as "nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy");
@@ -479,7 +501,7 @@ const SettingsManager: React.FC = () => {
       {/* Save Button */}
       <div className="mt-6">
         <button
-          onClick={saveSettings}
+          onClick={() => saveSettings()}
           className={`w-full flex items-center justify-center space-x-2 ${hasUnsavedChanges ? 'bg-[var(--primary-color)] text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'} font-medium rounded-lg py-3 hover:opacity-90 transition-colors`}
           disabled={!hasUnsavedChanges}
           id="save-settings-button"
