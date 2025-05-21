@@ -319,8 +319,19 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
   }, [isPlaying, options.useOpenAI]);
 
   const speak = useCallback(async (text: string, customOptions?: TTSOptions) => {
-    const currentOptions = { ...options, ...customOptions };
-    
+    // Detect iOS (iPhone/iPad)
+    const isIOS = typeof window !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    // On iOS, always force OpenAI TTS and disallow browser fallback
+    const currentOptions = (() => {
+      const opts = { ...options, ...customOptions };
+      if (isIOS) {
+        opts.useOpenAI = true;
+        opts.allowBrowserFallback = false;
+      }
+      return opts;
+    })();
+
     // Always cancel any existing speech synthesis
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -339,8 +350,8 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       } catch (error) {
         console.error('OpenAI TTS error:', error);
         setSpeaking(false);
-        // Only fallback to browser TTS if explicitly allowed
-        if (window.speechSynthesis && currentOptions.allowBrowserFallback) {
+        // Only fallback to browser TTS if explicitly allowed and not on iOS
+        if (window.speechSynthesis && currentOptions.allowBrowserFallback && !isIOS) {
           speakWithBrowserTTS(text, currentOptions);
         }
       }
