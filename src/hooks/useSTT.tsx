@@ -1,32 +1,42 @@
-import { useState, useEffect, useCallback } from 'react';
+// useSTT.tsx
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-// Define types for Web Speech API
+/**
+ * Custom React hook for speech-to-text using webkitSpeechRecognition.
+ * 
+ * This version creates a new recognition instance for each start,
+ * ensures all event handlers are cleaned up, and fully releases the mic,
+ * including on iOS Safari and Android Chrome.
+ * 
+ * Key points:
+ * - Recognition instance is created fresh for each start.
+ * - All event handlers are cleaned up after use.
+ * - MediaStream is only used for forced mic release on mobile after recognition ends.
+ * - Cleanup is robust and synchronous.
+ */
+
+// --- Type Declarations (Web Speech API) ---
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
   message: string;
 }
-
 interface SpeechRecognitionResult {
   isFinal: boolean;
   [index: number]: SpeechRecognitionAlternative;
 }
-
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
 }
-
 interface SpeechRecognitionResultList {
   length: number;
   item(index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechGrammarList {
   length: number;
   addFromString(string: string, weight?: number): void;
@@ -34,12 +44,10 @@ interface SpeechGrammarList {
   item(index: number): SpeechGrammar;
   [index: number]: SpeechGrammar;
 }
-
 interface SpeechGrammar {
   src: string;
   weight: number;
 }
-
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   grammars: SpeechGrammarList;
@@ -61,397 +69,170 @@ interface SpeechRecognition extends EventTarget {
   stop(): void;
   abort(): void;
 }
-
 interface SpeechRecognitionConstructor {
   new (): SpeechRecognition;
   prototype: SpeechRecognition;
 }
-
-// Declare global types for TypeScript
 declare global {
   interface Window {
     SpeechRecognition?: SpeechRecognitionConstructor;
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
-
 interface STTOptions {
   language?: string;
   continuous?: boolean;
   interimResults?: boolean;
 }
 
-interface ExtendedSpeechRecognition extends SpeechRecognition {
-  mediaStream?: MediaStream;
-}
-
+// --- Main Hook ---
 export const useSTT = (defaultOptions?: STTOptions) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [finalTranscript, setFinalTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [recognition, setRecognition] = useState<ExtendedSpeechRecognition | null>(null);
   const [options, setOptions] = useState<STTOptions>({
-    language: defaultOptions?.language || 'en-US',
-    continuous: defaultOptions?.continuous || false,
-    interimResults: defaultOptions?.interimResults || true
+    language: 'en-US',
+    continuous: false, // iOS: continuous mode is buggy
+    interimResults: true,
+    ...defaultOptions
   });
 
-  // Initialize speech recognition
-  useEffect(() => {
-    // Clean up function to properly dispose of recognition instance
-    const cleanupRecognition = (instance: ExtendedSpeechRecognition | null) => {
-      if (!instance) return;
-      
+  // Ref to hold the current recognition instance for cleanup
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Helper: Clear all event handlers on the recognition instance
+  const clearRecognitionHandlers = (rec: SpeechRecognition | null) => {
+    if (!rec) return;
+    rec.onstart = null;
+    rec.onend = null;
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onspeechend = null;
+    rec.onspeechstart = null;
+    rec.onsoundend = null;
+    rec.onsoundstart = null;
+    rec.onnomatch = null;
+    rec.onaudioend = null;
+    rec.onaudiostart = null;
+  };
+
+  // Helper: Force-release the mic on mobile after recognition ends
+  const forceReleaseMicMobile = async () => {
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       try {
-        // Stop recognition if active
-        if (instance === recognition && isListening) {
-          instance.stop();
-        }
-        
-        // Clean up media stream
-        if (instance.mediaStream) {
-          instance.mediaStream.getTracks().forEach(track => {
-            try {
-              track.stop();
-              console.log('Stopped track:', track.kind);
-            } catch (e) {
-              console.log('Error stopping track:', e);
-            }
-          });
-          instance.mediaStream = undefined;
-        }
-        
-        // Remove event listeners
-        instance.onstart = null;
-        instance.onend = null;
-        instance.onresult = null;
-        instance.onerror = null;
-        instance.onspeechend = null;
-        instance.onsoundend = null;
-        instance.onaudioend = null;
-        
-        // Reset state
-        setIsListening(false);
-        setError(null);
-        setTranscript('');
-        setFinalTranscript('');
-      } catch (e) {
-        console.error('Error cleaning up recognition:', e);
+        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tempStream.getTracks().forEach(track => track.stop());
+      } catch {
+        // Ignore errors (user may have denied permission)
       }
-    };
-
-    // Clean up any existing instance first
-    cleanupRecognition(recognition);
-
-    let recognitionInstance: ExtendedSpeechRecognition | null = null;
-
-    const initializeRecognition = () => {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        setError('Speech recognition is not supported in this browser');
-        return null;
-      }
-
-      // Create speech recognition instance
-      const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognitionImpl) {
-        setError('Speech recognition is not supported in this browser');
-        return null;
-      }
-
-      try {
-        const instance = new SpeechRecognitionImpl() as ExtendedSpeechRecognition;
-        
-        // Configure options
-        instance.lang = options.language || 'en-US';
-        instance.continuous = options.continuous || false;
-        instance.interimResults = true; // Always enable for better sensitivity
-        
-        // Add additional event handlers for better state management
-        instance.onspeechend = () => {
-          console.log('Speech ended');
-          // Stop recognition after speech ends
-          setTimeout(() => {
-            if (instance === recognition && isListening) {
-              instance.stop();
-            }
-          }, 1000);
-        };
-        
-        instance.onsoundend = () => {
-          console.log('Sound ended');
-        };
-        
-        instance.onaudioend = () => {
-          console.log('Audio ended');
-        };
-        
-        console.log('Speech recognition initialized with language:', instance.lang);
-        return instance;
-      } catch (err) {
-        console.error('Error initializing speech recognition:', err);
-        setError('Error initializing speech recognition');
-        return null;
-      }
-    };
-
-    const instance = initializeRecognition();
-    if (!instance) {
-      setRecognition(null);
-      return;
-    }
-    
-    recognitionInstance = instance;
-
-    // Set up event handlers
-    recognitionInstance.onstart = () => {
-      setIsListening(true);
-      setError(null);
-      console.log('Speech recognition started');
-    };
-
-    recognitionInstance.onend = () => {
-      console.log('Speech recognition ended');
-      
-      // Clean up media stream
-      if (recognitionInstance && recognitionInstance.mediaStream) {
-        recognitionInstance.mediaStream.getTracks().forEach(track => {
-          try {
-            track.stop();
-            console.log('Stopped track:', track.kind);
-          } catch (e) {
-            console.log('Error stopping track:', e);
-          }
-        });
-        recognitionInstance.mediaStream = undefined;
-      }
-      
-      // Reset state
-      setIsListening(false);
-      setError(null);
-      
-      // Clear transcripts after a delay to ensure final results are processed
-      setTimeout(() => {
-        if (!isListening) {
-          setTranscript('');
-          setFinalTranscript('');
-        }
-      }, 500);
-    };
-
-    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Recognition error:', event.error);
-      setError(`Recognition error: ${event.error}`);
-      
-      // Clean up media stream on error
-      if (recognitionInstance.mediaStream) {
-        recognitionInstance.mediaStream.getTracks().forEach(track => {
-          try {
-            track.stop();
-            console.log('Stopped track:', track.kind);
-          } catch (e) {
-            console.log('Error stopping track:', e);
-          }
-        });
-        recognitionInstance.mediaStream = undefined;
-      }
-      
-      // Reset state
-      setIsListening(false);
-      setTranscript('');
-      setFinalTranscript('');
-      
-      // Try to restart recognition if it was aborted or audio ended
-      if (event.error === 'aborted' || event.error === 'audio-capture') {
-        console.log('Attempting to restart recognition...');
-        setTimeout(() => {
-          if (recognitionInstance === recognition && !isListening) {
-            // Force reinitialize on error
-            setOptions(prev => ({...prev}));
-          }
-        }, 1000);
-      }
-    };
-
-    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
-      let interimTranscript = '';
-      let finalTranscriptValue = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        
-        if (event.results[i].isFinal) {
-          finalTranscriptValue += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      setTranscript(interimTranscript);
-      
-      if (finalTranscriptValue) {
-        setFinalTranscript(finalTranscriptValue.trim());
-      }
-    };
-
-    setRecognition(recognitionInstance);
-
-    return () => {
-      if (recognitionInstance) {
-        // Stop recognition if active
-        if (isListening) {
-          recognitionInstance.stop();
-        }
-        
-        // Clean up media stream
-        if (recognitionInstance.mediaStream) {
-          recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
-          recognitionInstance.mediaStream = undefined;
-        }
-        
-        // Remove event listeners
-        recognitionInstance.onstart = null;
-        recognitionInstance.onend = null;
-        recognitionInstance.onresult = null;
-        recognitionInstance.onerror = null;
-        
-        // Reset state
-        setIsListening(false);
-        setError(null);
-      }
-    };
-  }, [options, error]); // Re-initialize when options change or on error
-
-  // Handle microphone permissions
-  const ensureMicrophoneAccess = async () => {
-    try {
-      // First check if we already have permission
-      const permissions = await navigator.mediaDevices.enumerateDevices();
-      const audioPermission = permissions.find(device => device.kind === 'audioinput');
-      
-      // If we have a device but no label, we need permission
-      if (audioPermission && !audioPermission.label) {
-        console.log('Requesting microphone permission...');
-      }
-      
-      // Request microphone access with specific constraints for iOS
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1
-        } 
-      });
-      
-      // On iOS, we need to keep the stream active
-      stream.getTracks().forEach(track => {
-        track.onended = () => {
-          console.log('Audio track ended unexpectedly');
-          setError('Audio track ended');
-          setIsListening(false);
-          // Force reinitialize on track end
-          setOptions(prev => ({...prev}));
-        };
-      });
-      
-      return stream;
-    } catch (err) {
-      console.error('Error accessing microphone:', err);
-      setError('Error accessing microphone');
-      // Force reinitialize on error
-      setOptions(prev => ({...prev}));
-      return null;
     }
   };
 
-  // Stop listening
-  const stopListening = useCallback(() => {
-    if (!recognition) return;
-    
-    try {
-      // Stop recognition
-      recognition.stop();
-      
-      // Clean up media stream
-      if (recognition.mediaStream) {
-        recognition.mediaStream.getTracks().forEach(track => track.stop());
-        recognition.mediaStream = undefined;
-      }
-      
-      setIsListening(false);
-    } catch (err) {
-      console.error('Error stopping recognition:', err);
-      setIsListening(false);
+  // Cleanup function to stop recognition and release mic
+  const cleanupRecognition = useCallback(() => {
+    const rec = recognitionRef.current;
+    if (rec) {
+      try {
+        rec.onend = null; // Prevent recursion
+        rec.stop();
+        rec.abort();
+      } catch {}
+      clearRecognitionHandlers(rec);
+      recognitionRef.current = null;
     }
-  }, [recognition]);
+    setIsListening(false);
+  }, []);
 
-  // Start listening
-  const startListening = useCallback(async () => {
-    if (!recognition) {
-      console.error('Speech recognition not initialized');
+  // Start listening: create a new recognition instance, attach handlers, and start
+  const startListening = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window)) {
+      setError('Speech recognition not supported');
       return;
     }
-    
-    try {
-      // If already listening, stop and wait for cleanup
-      if (isListening) {
-        recognition.stop();
-        // Wait for onend event to fire and cleanup to complete
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
-      // Force cleanup of any existing media stream
-      if (recognition.mediaStream) {
-        recognition.mediaStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped media track:', track.kind);
-        });
-        recognition.mediaStream = undefined;
-      }
-      
-      // Reset states
+    const SpeechRecognitionImpl = window.webkitSpeechRecognition;
+    if (!SpeechRecognitionImpl) {
+      setError('Speech recognition not supported');
+      return;
+    }
+
+    // Clean up any previous instance
+    cleanupRecognition();
+
+    // Create new recognition instance
+    const rec = new SpeechRecognitionImpl();
+    recognitionRef.current = rec;
+    rec.lang = options.language || 'en-US';
+    rec.continuous = false; // iOS: continuous mode is buggy
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      setIsListening(true);
       setError(null);
       setTranscript('');
       setFinalTranscript('');
-      
-      // Ensure we have microphone access first
-      const stream = await ensureMicrophoneAccess();
-      if (!stream) {
-        throw new Error('Failed to get microphone access');
-      }
-      
-      // Store the stream
-      recognition.mediaStream = stream;
-      
-      // Start recognition
-      recognition.start();
-      console.log('Starting recognition...');
-    } catch (error) {
-      console.error('Recognition error:', error);
-      setError('Error starting speech recognition');
-      if (recognition.mediaStream) {
-        recognition.mediaStream.getTracks().forEach(track => track.stop());
-        recognition.mediaStream = undefined;
-      }
+    };
+    rec.onend = async () => {
       setIsListening(false);
-      // Force reinitialize on error
-      setOptions(prev => ({...prev}));
+      clearRecognitionHandlers(rec);
+      recognitionRef.current = null;
+      await forceReleaseMicMobile();
+    };
+    rec.onspeechend = () => {
+      rec.stop();
+    };
+    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+      setError(event.error);
+      setIsListening(false);
+      clearRecognitionHandlers(rec);
+      recognitionRef.current = null;
+    };
+    rec.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      setTranscript(interim);
+      if (final) setFinalTranscript(final.trim());
+    };
+
+    try {
+      rec.start();
+    } catch (err) {
+      setError('Error starting recognition');
+      setIsListening(false);
+      clearRecognitionHandlers(rec);
+      recognitionRef.current = null;
     }
-  }, [recognition, isListening, ensureMicrophoneAccess, setOptions]);
+  }, [options.language, cleanupRecognition]);
 
-  // Update options
-  const updateOptions = useCallback((newOptions: Partial<STTOptions>) => {
-    setOptions(prev => ({ ...prev, ...newOptions }));
-  }, []);
+  // Stop listening: stop/abort recognition and cleanup
+  const stopListening = useCallback(() => {
+    cleanupRecognition();
+    forceReleaseMicMobile();
+  }, [cleanupRecognition]);
 
-  // Clear transcripts
+  // Clear transcripts only
   const clearTranscripts = useCallback(() => {
     setTranscript('');
     setFinalTranscript('');
   }, []);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRecognition();
+    };
+  }, [cleanupRecognition]);
+
+  // Expose API
   return {
     startListening,
     stopListening,
@@ -459,8 +240,18 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     finalTranscript,
     isListening,
     error,
-    updateOptions,
+    updateOptions: (newOptions: Partial<STTOptions>) => setOptions(prev => ({ ...prev, ...newOptions })),
     clearTranscripts,
-    isSupported: !!recognition
+    isSupported: !!window.webkitSpeechRecognition
   };
 };
+
+/**
+ * --- Explanation of Key Steps ---
+ * 
+ * 1. A new recognition instance is created for each start, avoiding stale or cleaned-up instances.
+ * 2. All event handlers are cleaned up after use to prevent leaks.
+ * 3. After recognition ends, the mic is force-released on mobile by requesting and stopping a new stream.
+ * 4. Cleanup is synchronous and robust, and always runs on unmount.
+ * 5. State is reset on each start and after recognition ends.
+ */
