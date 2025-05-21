@@ -32,7 +32,9 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     // Try to get settings from Supabase first
     const userSettings = getUserSettings();
     if (userSettings?.tts) {
-      console.log('Loaded TTS settings from Supabase:', userSettings.tts);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Loaded TTS settings from Supabase:', userSettings.tts);
+      }
       return {
         rate: userSettings.tts.rate ?? 1,
         pitch: userSettings.tts.pitch ?? 1,
@@ -48,7 +50,9 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
-        console.log('Loaded TTS settings from localStorage:', parsed);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Loaded TTS settings from localStorage:', parsed);
+        }
         return {
           rate: parsed.rate ?? 1,
           pitch: parsed.pitch ?? 1,
@@ -71,18 +75,23 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       openaiModel: defaultOptions?.openaiModel ?? "tts-1",
       useOpenAI: true // Always default to OpenAI TTS unless explicitly disabled
     };
-    console.log('Using default TTS settings:', defaults);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Using default TTS settings:', defaults);
+    }
     return defaults;
   });
 
-  // Force initialize settings from Supabase
+  // Initialize settings from Supabase once
   useEffect(() => {
     const initializeSettings = () => {
       try {
         // Try to get settings from Supabase
         const userSettings = getUserSettings();
         if (userSettings?.tts) {
-          console.log('Force initializing TTS settings from Supabase:', userSettings.tts);
+          // Only log on initial load or debug mode
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Initializing TTS settings from Supabase:', userSettings.tts);
+          }
           
           const settings = {
             rate: userSettings.tts.rate ?? 1,
@@ -108,7 +117,9 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
         if (savedSettings) {
           const parsed = JSON.parse(savedSettings);
-          console.log('Force initializing TTS settings from localStorage:', parsed);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Initializing TTS settings from localStorage:', parsed);
+          }
           
           // Only use useOpenAI: false if it was explicitly set to false
           const useOpenAI = parsed.useOpenAI === false ? false : true;
@@ -128,7 +139,7 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
           }));
         }
       } catch (error) {
-        console.error('Error force initializing TTS settings:', error);
+        console.error('Error initializing TTS settings:', error);
         // On error, ensure we still default to OpenAI
         setOptions(prev => ({
           ...prev,
@@ -137,11 +148,10 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       }
     };
     
-    // Initialize immediately and set up an interval to check for updates
+    // Initialize once when the component mounts or getUserSettings changes
     initializeSettings();
-    const interval = setInterval(initializeSettings, 1000); // Check every second
     
-    return () => clearInterval(interval);
+    // No interval needed - settings will be loaded once and then updated via updateOptions
   }, [getUserSettings]); // Run when getUserSettings changes
 
   // Load voices and initialize settings
@@ -157,11 +167,16 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
       try {
         // Force Chrome to load voices
         if (synth.getVoices().length === 0) {
-          console.log('No voices available yet, waiting...');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('No voices available yet, waiting...');
+          }
         }
         
         const availableVoices = synth.getVoices();
-        console.log('Loaded voices:', availableVoices.length);
+        // Only log in development mode
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Loaded voices:', availableVoices.length);
+        }
         setVoices(availableVoices);
         
         // Always try to load the saved voice when voices are available
@@ -169,7 +184,10 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         if (savedSettings && availableVoices.length > 0) {
           try {
             const parsed = JSON.parse(savedSettings);
-            console.log('Loading saved TTS settings:', parsed);
+            // Only log in development mode
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Loading saved TTS settings:', parsed);
+            }
             
             // Update all settings
             const updatedOptions: TTSOptions = {
@@ -185,17 +203,23 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
             if (parsed.voiceURI) {
               const savedVoice = availableVoices.find(v => v.voiceURI === parsed.voiceURI);
               if (savedVoice) {
-                console.log('Found saved voice:', savedVoice.name);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('Found saved voice:', savedVoice.name);
+                }
                 updatedOptions.voice = savedVoice;
               } else {
-                console.log('Saved voice not found, using default');
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('Saved voice not found, using default');
+                }
                 updatedOptions.voice = availableVoices.find(v => v.default) || availableVoices[0];
               }
             }
             
             // Update all options at once
             setOptions(updatedOptions);
-            console.log('Updated TTS options:', updatedOptions);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Updated TTS options:', updatedOptions);
+            }
           } catch (e) {
             console.error('Error parsing saved TTS settings:', e);
           }
@@ -273,7 +297,9 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     
     // Normalize rate based on selected voice
     const normalizedRate = normalizeRate(currentOptions.rate || 1, utterance.voice);
-    console.log(`Speech rate: original=${currentOptions.rate}, normalized=${normalizedRate} for voice ${utterance.voice?.name || 'default'}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Speech rate: original=${currentOptions.rate}, normalized=${normalizedRate} for voice ${utterance.voice?.name || 'default'}`);
+    }
     
     utterance.rate = normalizedRate;
     utterance.pitch = currentOptions.pitch || 1;
@@ -379,7 +405,9 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
         useOpenAI: updated.useOpenAI
       };
       
-      console.log('Saving TTS settings to localStorage:', saveData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Saving TTS settings to localStorage:', saveData);
+      }
       localStorage.setItem(TTS_SETTINGS_KEY, JSON.stringify(saveData));
       
       return updated;

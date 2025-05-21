@@ -98,7 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           settings: settings
         });
         
-        console.log('Loaded user settings from Supabase:', settings);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Loaded user settings from Supabase:', settings);
+        }
       } else {
         setUser(null);
       }
@@ -209,8 +211,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('User not authenticated');
       }
       
-      // Log for debugging
-      console.log('Saving user settings:', settings);
+      // Log for debugging (only in development)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Saving user settings:', settings);
+      }
       
       // Flatten the settings structure to avoid nesting issues
       const userData = {
@@ -228,14 +232,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stt_language: settings.stt?.language
       };
       
-      console.log('Sending user data to Supabase:', userData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Sending user data to Supabase:', userData);
+      }
       
       // Update user metadata with flattened structure
       const { data, error } = await supabase.auth.updateUser({
         data: userData
       });
 
-      console.log('Supabase response:', data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Supabase response:', data);
+      }
       
       if (error) {
         console.error('Supabase error:', error);

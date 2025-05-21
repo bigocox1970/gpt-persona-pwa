@@ -120,14 +120,14 @@ const PersonaSelection: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-[var(--background-primary)] dark:bg-[var(--background-primary)]">
-      <div className="flex-1 flex items-center justify-center relative select-none px-2 sm:px-6 md:px-12 py-0 pb-16 overflow-visible">
+      <div className="flex-1 flex items-center justify-center relative select-none px-2 sm:px-6 md:px-12 overflow-visible">
         {showWelcome ? (
-          <div className="w-full max-w-lg h-[72vh] min-h-[340px] flex items-center justify-center relative mb-8 overflow-visible">
+          <div className="w-full max-w-lg h-[65vh] min-h-[340px] flex items-center justify-center relative overflow-visible">
             <WelcomeCard onContinue={handleContinue} />
           </div>
         ) : (
           <div
-            className="w-full max-w-lg h-[72vh] min-h-[340px] flex items-center justify-center relative mb-8 overflow-visible"
+            className="w-full max-w-lg h-[65vh] min-h-[340px] flex items-center justify-center relative overflow-visible"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -184,7 +184,7 @@ const PersonaSelection: React.FC = () => {
         )}
       </div>
       {!showWelcome && (
-        <div className="text-center p-2 mb-4 text-gray-400">
+        <div className="text-center p-2 mb-2 text-gray-400">
           <p className="text-sm">
             Swipe, use arrows, or keyboard to browse personas ({currentIndex + 1} / {personas.length})
           </p>
@@ -196,6 +196,7 @@ const PersonaSelection: React.FC = () => {
           position: relative;
           width: 100%;
           height: 100%;
+          transform-origin: center center;
         }
         .flip-left {
           transform: rotateY(-180deg);
@@ -223,6 +224,21 @@ const PersonaSelection: React.FC = () => {
         /* Ensure card animations have enough space */
         .flip-card-inner, .flip-card-front, .flip-card-back {
           overflow: visible !important;
+        }
+        
+        /* Center the card container */
+        .flex-1.flex.items-center.justify-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          padding-top: 0;
+          padding-bottom: 0;
+        }
+        
+        /* Ensure the card container has enough vertical space */
+        .w-full.max-w-lg.h-\\[65vh\\] {
+          margin: auto;
         }
         /* Persona card border and shadow - only on the main card container */
         .flip-card-front > .relative.rounded-3xl,

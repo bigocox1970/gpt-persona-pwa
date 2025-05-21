@@ -383,31 +383,55 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  // Create a ref to track if we're in the process of toggling
+  const isTogglingRef = useRef(false);
+  
   const toggleVoiceInput = useCallback(async () => {
-    if (isListening) {
-      stopListening();
-      clearTranscripts();
-      setInputText('');
-    } else {
-      try {
-        // Focus input field first
+    // Prevent multiple rapid clicks
+    if (isTogglingRef.current) {
+      console.log('Already toggling voice input, ignoring click');
+      return;
+    }
+    
+    isTogglingRef.current = true;
+    console.log('toggleVoiceInput called, isListening:', isListening);
+    
+    try {
+      if (isListening) {
+        console.log('Stopping listening...');
+        // Properly stop and clean up existing listener
+        await stopListening();
+        clearTranscripts();
+        setInputText('');
+        console.log('Listening stopped');
+      } else {
+        console.log('Starting listening...');
+        // Always ensure we're in a clean state before starting
+        await stopListening(); // Force stop any existing session
+        
+        clearTranscripts();
+        setInputText('');
+        
         if (inputRef.current) {
           inputRef.current.focus();
         }
         
-        // Clear any existing text and transcripts before starting
-        clearTranscripts();
-        setInputText('');
-        
-        // Request microphone permission and start listening
+        // Initialize fresh listening session
+        console.log('Starting new listening session...');
         await startListening();
-      } catch (error) {
-        console.error('Error activating microphone:', error);
-        // Reset state if there's an error
-        stopListening();
-        clearTranscripts();
-        setInputText('');
+        console.log('Listening started');
       }
+    } catch (error) {
+      console.error('Error toggling voice input:', error);
+      // Clean up on error
+      await stopListening();
+      clearTranscripts();
+      setInputText('');
+    } finally {
+      // Reset the toggling flag after a short delay
+      setTimeout(() => {
+        isTogglingRef.current = false;
+      }, 1000);
     }
   }, [isListening, stopListening, clearTranscripts, startListening]);
 
