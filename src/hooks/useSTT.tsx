@@ -104,75 +104,66 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       return;
     }
 
-    // Create speech recognition instance
-    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionImpl) {
-      setError('Speech recognition is not supported in this browser');
-      return;
-    }
-    const recognitionInstance = new SpeechRecognitionImpl();
-    
-    // Configure options
-    recognitionInstance.lang = options.language || 'en-US';
-    recognitionInstance.continuous = options.continuous || false;
-    recognitionInstance.interimResults = options.interimResults || true;
-    
-    // Increase audio sensitivity
-    recognitionInstance.interimResults = true; // Enable interim results for better sensitivity
-    
-    console.log('Speech recognition initialized with language:', recognitionInstance.lang);
+    let recognitionInstance: ExtendedSpeechRecognition | null = null;
 
-    // Set up event handlers
-    recognitionInstance.onstart = () => {
-      setIsListening(true);
-      setError(null);
-      console.log('Speech recognition started');
-      
-      // Request audio permission explicitly
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          console.log('Microphone access granted');
-          // Store the stream to stop it later
-          (recognitionInstance as ExtendedSpeechRecognition).mediaStream = stream;
-        })
-        .catch(err => {
-          console.error('Error accessing microphone:', err);
-          setError('Error accessing microphone');
-        });
-    };
+    // Request microphone permission first
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        console.log('Microphone access granted');
 
-    recognitionInstance.onend = () => {
-      setIsListening(false);
-      console.log('Speech recognition ended');
-      
-      // Stop and cleanup media stream
-      const extendedInstance = recognitionInstance as ExtendedSpeechRecognition;
-      if (extendedInstance.mediaStream) {
-        extendedInstance.mediaStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped media track:', track.kind);
-        });
-        extendedInstance.mediaStream = undefined;
-      }
-    };
+        // Create speech recognition instance after permission is granted
+        const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognitionImpl) {
+          setError('Speech recognition is not supported in this browser');
+          return;
+        }
+        recognitionInstance = new SpeechRecognitionImpl() as ExtendedSpeechRecognition;
+        
+        // Configure options
+        recognitionInstance.lang = options.language || 'en-US';
+        recognitionInstance.continuous = options.continuous || false;
+        recognitionInstance.interimResults = true; // Always enable for better sensitivity
+        
+        // Store the stream
+        recognitionInstance.mediaStream = stream;
+        
+        console.log('Speech recognition initialized with language:', recognitionInstance.lang);
 
-    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Recognition error:', event.error);
-      setError(`Recognition error: ${event.error}`);
-      setIsListening(false);
-      
-      // Stop and cleanup media stream on error
-      const extendedInstance = recognitionInstance as ExtendedSpeechRecognition;
-      if (extendedInstance.mediaStream) {
-        extendedInstance.mediaStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped media track on error:', track.kind);
-        });
-        extendedInstance.mediaStream = undefined;
-      }
-    };
+        // Set up event handlers
+        recognitionInstance.onstart = () => {
+          setIsListening(true);
+          setError(null);
+          console.log('Speech recognition started');
+        };
 
-    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+        recognitionInstance.onend = () => {
+          setIsListening(false);
+          console.log('Speech recognition ended');
+          
+          // Don't stop the media stream on end, keep it alive for next recognition
+          if (recognitionInstance?.mediaStream) {
+            console.log('Keeping media stream alive for next recognition');
+          }
+        };
+
+        recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
+          console.error('Recognition error:', event.error);
+          setError(`Recognition error: ${event.error}`);
+          setIsListening(false);
+          
+          // Only stop stream on fatal errors
+          if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+            if (recognitionInstance?.mediaStream) {
+              recognitionInstance.mediaStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('Stopped media track due to fatal error:', track.kind);
+              });
+              recognitionInstance.mediaStream = undefined;
+            }
+          }
+        };
+
+        recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
       let finalTranscriptValue = '';
 
@@ -193,18 +184,18 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       }
     };
 
-    setRecognition(recognitionInstance);
+        setRecognition(recognitionInstance);
+      })
+      .catch(err => {
+        console.error('Error accessing microphone:', err);
+        setError('Error accessing microphone');
+      });
 
     return () => {
       if (recognitionInstance) {
-        // Stop and cleanup media stream
-        const extendedInstance = recognitionInstance as ExtendedSpeechRecognition;
-        if (extendedInstance.mediaStream) {
-          extendedInstance.mediaStream.getTracks().forEach(track => {
-            track.stop();
-            console.log('Stopped media track on cleanup:', track.kind);
-          });
-          extendedInstance.mediaStream = undefined;
+        // Stop recognition if active
+        if (isListening) {
+          recognitionInstance.stop();
         }
         
         // Remove event listeners
@@ -213,12 +204,17 @@ export const useSTT = (defaultOptions?: STTOptions) => {
         recognitionInstance.onresult = null;
         recognitionInstance.onerror = null;
         
-        if (isListening) {
-          recognitionInstance.stop();
+        // Stop and cleanup media stream
+        if (recognitionInstance.mediaStream) {
+          recognitionInstance.mediaStream.getTracks().forEach(track => {
+            track.stop();
+            console.log('Stopped media track on cleanup:', track.kind);
+          });
+          recognitionInstance.mediaStream = undefined;
         }
       }
     };
-  }, [options]);
+  }, [options, isListening]);
 
   // Start listening
   const startListening = useCallback(() => {

@@ -1,9 +1,9 @@
-fix: improve audio resource management to prevent STT/TTS interference
+fix: improve STT microphone handling to restore voice recognition sensitivity
 
-- Add proper cleanup of audio contexts and resources in TTS player
-- Add explicit microphone stream management in STT hook
-- Add cleanup of media streams when stopping recognition
-- Add delay between audio playback to ensure contexts are cleaned up
-- Fix TypeScript types for Web Speech API interfaces
+- Request microphone permissions upfront before initializing recognition
+- Keep media stream alive between recognition sessions
+- Only stop media stream on fatal errors or cleanup
+- Remove redundant stream management from onstart handler
+- Ensure continuous microphone access for better recognition
 
-This fixes an issue where the browser's Speech-to-Text functionality had reduced sensitivity after enabling OpenAI TTS, by ensuring proper cleanup of audio resources and preventing interference between the two systems.
+This fixes an issue where the browser's Speech-to-Text functionality had reduced sensitivity by maintaining a consistent microphone stream instead of repeatedly stopping and starting it.
