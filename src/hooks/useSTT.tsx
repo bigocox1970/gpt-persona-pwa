@@ -99,19 +99,50 @@ export const useSTT = (defaultOptions?: STTOptions) => {
 
   // Initialize speech recognition
   useEffect(() => {
-    // Clean up any existing instance first
-    if (recognition) {
-      if (recognition.mediaStream) {
-        recognition.mediaStream.getTracks().forEach(track => track.stop());
-        recognition.mediaStream = undefined;
+    // Clean up function to properly dispose of recognition instance
+    const cleanupRecognition = (instance: ExtendedSpeechRecognition | null) => {
+      if (!instance) return;
+      
+      try {
+        // Stop recognition if active
+        if (instance === recognition && isListening) {
+          instance.stop();
+        }
+        
+        // Clean up media stream
+        if (instance.mediaStream) {
+          instance.mediaStream.getTracks().forEach(track => {
+            try {
+              track.stop();
+              console.log('Stopped track:', track.kind);
+            } catch (e) {
+              console.log('Error stopping track:', e);
+            }
+          });
+          instance.mediaStream = undefined;
+        }
+        
+        // Remove event listeners
+        instance.onstart = null;
+        instance.onend = null;
+        instance.onresult = null;
+        instance.onerror = null;
+        instance.onspeechend = null;
+        instance.onsoundend = null;
+        instance.onaudioend = null;
+        
+        // Reset state
+        setIsListening(false);
+        setError(null);
+        setTranscript('');
+        setFinalTranscript('');
+      } catch (e) {
+        console.error('Error cleaning up recognition:', e);
       }
-      recognition.onstart = null;
-      recognition.onend = null;
-      recognition.onresult = null;
-      recognition.onerror = null;
-      setIsListening(false);
-      setError(null);
-    }
+    };
+
+    // Clean up any existing instance first
+    cleanupRecognition(recognition);
 
     let recognitionInstance: ExtendedSpeechRecognition | null = null;
 
@@ -135,6 +166,25 @@ export const useSTT = (defaultOptions?: STTOptions) => {
         instance.lang = options.language || 'en-US';
         instance.continuous = options.continuous || false;
         instance.interimResults = true; // Always enable for better sensitivity
+        
+        // Add additional event handlers for better state management
+        instance.onspeechend = () => {
+          console.log('Speech ended');
+          // Stop recognition after speech ends
+          setTimeout(() => {
+            if (instance === recognition && isListening) {
+              instance.stop();
+            }
+          }, 1000);
+        };
+        
+        instance.onsoundend = () => {
+          console.log('Sound ended');
+        };
+        
+        instance.onaudioend = () => {
+          console.log('Audio ended');
+        };
         
         console.log('Speech recognition initialized with language:', instance.lang);
         return instance;
@@ -161,33 +211,63 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     };
 
     recognitionInstance.onend = () => {
-      setIsListening(false);
       console.log('Speech recognition ended');
       
       // Clean up media stream
       if (recognitionInstance && recognitionInstance.mediaStream) {
-        recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
+        recognitionInstance.mediaStream.getTracks().forEach(track => {
+          try {
+            track.stop();
+            console.log('Stopped track:', track.kind);
+          } catch (e) {
+            console.log('Error stopping track:', e);
+          }
+        });
         recognitionInstance.mediaStream = undefined;
       }
+      
+      // Reset state
+      setIsListening(false);
+      setError(null);
+      
+      // Clear transcripts after a delay to ensure final results are processed
+      setTimeout(() => {
+        if (!isListening) {
+          setTranscript('');
+          setFinalTranscript('');
+        }
+      }, 500);
     };
 
     recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Recognition error:', event.error);
       setError(`Recognition error: ${event.error}`);
-      setIsListening(false);
       
       // Clean up media stream on error
       if (recognitionInstance.mediaStream) {
-        recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
+        recognitionInstance.mediaStream.getTracks().forEach(track => {
+          try {
+            track.stop();
+            console.log('Stopped track:', track.kind);
+          } catch (e) {
+            console.log('Error stopping track:', e);
+          }
+        });
         recognitionInstance.mediaStream = undefined;
       }
+      
+      // Reset state
+      setIsListening(false);
+      setTranscript('');
+      setFinalTranscript('');
       
       // Try to restart recognition if it was aborted or audio ended
       if (event.error === 'aborted' || event.error === 'audio-capture') {
         console.log('Attempting to restart recognition...');
         setTimeout(() => {
-          if (recognitionInstance && !isListening) {
-            recognitionInstance.start();
+          if (recognitionInstance === recognition && !isListening) {
+            // Force reinitialize on error
+            setOptions(prev => ({...prev}));
           }
         }, 1000);
       }
