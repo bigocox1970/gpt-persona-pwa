@@ -414,43 +414,26 @@ const ChatInterface: React.FC = () => {
       console.log('Already toggling voice input, ignoring click');
       return;
     }
-    
     isTogglingRef.current = true;
-    console.log('toggleVoiceInput called, isListening:', isListening);
-    
     try {
+      // Always stop and clean up before starting
+      await stopListening();
+      clearTranscripts();
+      setInputText('');
       if (isListening) {
-        console.log('Stopping listening...');
-        // Properly stop and clean up existing listener
-        await stopListening();
-        clearTranscripts();
-        setInputText('');
-        console.log('Listening stopped');
+        // Just stopped, don't start again
+        console.log('Stopped listening.');
       } else {
-        console.log('Starting listening...');
-        // Always ensure we're in a clean state before starting
-        await stopListening(); // Force stop any existing session
-        
-        clearTranscripts();
-        setInputText('');
-        
-        if (inputRef.current) {
-          inputRef.current.focus();
-        }
-        
-        // Initialize fresh listening session
-        console.log('Starting new listening session...');
+        if (inputRef.current) inputRef.current.focus();
         await startListening();
-        console.log('Listening started');
+        console.log('Started listening.');
       }
     } catch (error) {
       console.error('Error toggling voice input:', error);
-      // Clean up on error
       await stopListening();
       clearTranscripts();
       setInputText('');
     } finally {
-      // Reset the toggling flag after a short delay
       setTimeout(() => {
         isTogglingRef.current = false;
       }, 1000);
