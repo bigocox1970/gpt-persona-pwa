@@ -147,12 +147,13 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     };
 
     recognitionInstance.onend = () => {
-      // Only set isListening to false if we're not in an error state
-      if (!error) {
-        setIsListening(false);
-        console.log('Speech recognition ended normally');
-      } else {
-        console.log('Speech recognition ended with error');
+      setIsListening(false);
+      console.log('Speech recognition ended');
+      
+      // Clean up media stream
+      if (recognitionInstance && recognitionInstance.mediaStream) {
+        recognitionInstance.mediaStream.getTracks().forEach(track => track.stop());
+        recognitionInstance.mediaStream = undefined;
       }
     };
 
@@ -268,11 +269,21 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     }
     
     try {
-      // Stop any existing recognition
-      stopListening();
+      // If already listening, stop first
+      if (isListening) {
+        recognition.stop();
+        // Wait for onend event to fire
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
       
-      // Wait a bit for cleanup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Clean up any existing media stream
+      if (recognition.mediaStream) {
+        recognition.mediaStream.getTracks().forEach(track => track.stop());
+        recognition.mediaStream = undefined;
+      }
+      
+      // Reset error state
+      setError(null);
       
       // Ensure we have microphone access first
       const stream = await ensureMicrophoneAccess();
@@ -289,9 +300,13 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     } catch (error) {
       console.error('Recognition error:', error);
       setError('Error starting speech recognition');
-      stopListening();
+      if (recognition.mediaStream) {
+        recognition.mediaStream.getTracks().forEach(track => track.stop());
+        recognition.mediaStream = undefined;
+      }
+      setIsListening(false);
     }
-  }, [recognition, isListening, stopListening, ensureMicrophoneAccess]);
+  }, [recognition, isListening, ensureMicrophoneAccess]);
 
   // Update options
   const updateOptions = useCallback((newOptions: Partial<STTOptions>) => {
