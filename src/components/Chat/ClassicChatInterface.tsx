@@ -2,9 +2,31 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { usePersona } from "../../contexts/PersonaContext";
 import { useNavigate } from "react-router-dom";
 import { Mic, MicOff, Volume2, SendHorizontal } from "lucide-react";
-import { useTTS } from "../../hooks/useTTS";
 
-// Removed useBrowserTTS - now using useTTS for TTS functionality.
+// Minimal browser TTS hook
+function useBrowserTTS() {
+  const [speaking, setSpeaking] = useState(false);
+
+  const speak = useCallback((text: string, options?: { rate?: number; pitch?: number; voice?: SpeechSynthesisVoice }) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new window.SpeechSynthesisUtterance(text);
+    if (options?.rate) utter.rate = options.rate;
+    if (options?.pitch) utter.pitch = options.pitch;
+    if (options?.voice) utter.voice = options.voice;
+    utter.onstart = () => setSpeaking(true);
+    utter.onend = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utter);
+  }, []);
+
+  const stop = useCallback(() => {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }, []);
+
+  return { speak, stop, speaking };
+}
 
 // Minimal browser STT hook
 function useBrowserSTT(language: string = "en-GB") {
@@ -70,23 +92,20 @@ const ClassicChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("en-GB");
-  // useTTS supports both browser and OpenAI TTS, depending on user settings
-  const { speak, stop, speaking } = useTTS();
+  const { speak, stop, speaking } = useBrowserTTS();
   const { isListening, transcript, finalTranscript, startListening, stopListening } = useBrowserSTT(language);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Stream interim transcript to input, but keep final when available
   useEffect(() => {
-    if (isListening && transcript) {
-      setInput(transcript);
+    if (isListening) {
+      if (transcript) setInput(transcript);
     }
   }, [transcript, isListening]);
 
   useEffect(() => {
-    if (isListening && finalTranscript) {
-      setInput(finalTranscript);
-    }
-  }, [finalTranscript, isListening]);
+    if (finalTranscript) setInput(finalTranscript);
+  }, [finalTranscript]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -116,11 +135,6 @@ const ClassicChatInterface: React.FC = () => {
       stream();
     }, 500);
     setInput("");
-    // Clear STT transcripts after sending to avoid overwriting user input
-    // @ts-ignore
-    if (typeof setTranscript === "function") setTranscript("");
-    // @ts-ignore
-    if (typeof setFinalTranscript === "function") setFinalTranscript("");
   };
 
   return (
