@@ -58,6 +58,29 @@ export const useTTS = (defaultOptions?: TTSOptions) => {
     return defaults;
   });
 
+  // Force initialize settings from localStorage
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem(TTS_SETTINGS_KEY);
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        console.log('Force initializing TTS settings:', parsed);
+        
+        // Update options immediately
+        setOptions(prev => ({
+          ...prev,
+          rate: parsed.rate ?? prev.rate,
+          pitch: parsed.pitch ?? prev.pitch,
+          openaiVoice: parsed.openaiVoice ?? prev.openaiVoice,
+          openaiModel: parsed.openaiModel ?? prev.openaiModel,
+          useOpenAI: parsed.useOpenAI ?? prev.useOpenAI
+        }));
+      }
+    } catch (error) {
+      console.error('Error force initializing TTS settings:', error);
+    }
+  }, []); // Run once on mount
+
   // Load voices and initialize settings
   useEffect(() => {
     if (!window.speechSynthesis) {
