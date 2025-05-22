@@ -521,10 +521,11 @@ const ChatInterface: React.FC = () => {
           </div>
         )}
       </div>
+      </div>
       
-        {/* Input area */}
-        <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] border-t border-gray-200 dark:border-gray-700 p-4 relative z-10">
-          <div className="flex items-center">
+      {/* Input area - exactly like ClassicChatInterface */}
+      <div className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] border-t border-[var(--secondary-color)] p-4 z-20">
+        <div className="flex items-center">
           <button 
             className={`p-2 rounded-full mr-2 ${isListening ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
             onClick={toggleVoiceInput}
@@ -579,8 +580,7 @@ const ChatInterface: React.FC = () => {
           </div>
         )}
       </div>
-        </div>
-      </div>
+    </div>
   );
 };
 
