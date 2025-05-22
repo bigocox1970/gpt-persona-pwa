@@ -18,7 +18,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, showPersona = false, persona, onHistoryClick, onToolsClick }) => {
   const location = useLocation();
-  const isChatPage = location.pathname === '/chat';
+  const isChatPage = location.pathname === '/chat' || location.pathname === '/classic-chat';
   return (
     <header className="sticky top-0 z-20 bg-[var(--background-primary)] shadow-sm py-3 px-6 flex items-center justify-between min-h-[64px]">
       {showPersona && persona ? (

@@ -1,21 +1,13 @@
 // useSTT.tsx
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 /**
- * Custom React hook for speech-to-text using webkitSpeechRecognition.
+ * Custom React hook for speech-to-text using webkitSpeechRecognition or OpenAI Whisper.
  * 
- * This version creates a new recognition instance for each start,
- * ensures all event handlers are cleaned up, and fully releases the mic,
- * including on iOS Safari and Android Chrome.
- * 
- * Key points:
- * - Recognition instance is created fresh for each start.
- * - All event handlers are cleaned up after use.
- * - MediaStream is only used for forced mic release on mobile after recognition ends.
- * - Cleanup is robust and synchronous.
+ * If useOpenAI is true, uses MediaRecorder to record audio and sends it to the backend for OpenAI Whisper transcription.
+ * If useOpenAI is false, uses browser's webkitSpeechRecognition.
  */
 
-// --- Type Declarations (Web Speech API) ---
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
@@ -83,9 +75,9 @@ interface STTOptions {
   language?: string;
   continuous?: boolean;
   interimResults?: boolean;
+  useOpenAI?: boolean;
 }
 
-// --- Main Hook ---
 export const useSTT = (defaultOptions?: STTOptions) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -93,13 +85,17 @@ export const useSTT = (defaultOptions?: STTOptions) => {
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<STTOptions>({
     language: 'en-US',
-    continuous: false, // iOS: continuous mode is buggy
-    interimResults: true, // Always stream interim results
+    continuous: false,
+    interimResults: true,
     ...defaultOptions
   });
 
-  // Ref to hold the current recognition instance for cleanup
+  // For browser STT
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // For OpenAI STT
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Helper: Clear all event handlers on the recognition instance
   const clearRecognitionHandlers = (rec: SpeechRecognition | null) => {
@@ -134,7 +130,7 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     const rec = recognitionRef.current;
     if (rec) {
       try {
-        rec.onend = null; // Prevent recursion
+        rec.onend = null;
         rec.stop();
         rec.abort();
       } catch {}
@@ -144,10 +140,90 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     setIsListening(false);
   }, []);
 
-  // Start listening: create a new recognition instance, attach handlers, and start
+  // Cleanup function for OpenAI STT
+  const cleanupMediaRecorder = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+    setIsListening(false);
+  }, []);
+
+  // --- Pseudo-streaming OpenAI STT ---
+  // Timer for chunked recording
+  const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Store the last transcript to avoid duplicate UI updates
+  const lastTranscriptRef = useRef<string>("");
+
+  // Start listening: either browser STT or OpenAI STT
   const startListening = useCallback(() => {
+    if (options.useOpenAI) {
+      // Simple OpenAI Whisper STT (single utterance, no chunking)
+      if (isListening) return;
+      setError(null);
+      setTranscript('');
+      setFinalTranscript('');
+      audioChunksRef.current = [];
+
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstart = () => {
+          setIsListening(true);
+        };
+
+        recorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          audioChunksRef.current = [];
+          stream.getTracks().forEach(track => track.stop());
+          try {
+            const formData = new FormData();
+            formData.append("file", audioBlob, "audio.webm");
+            const response = await fetch("/.netlify/functions/stt", {
+              method: "POST",
+              body: formData
+            });
+            if (!response.ok) {
+              const errText = await response.text();
+              setError("STT error: " + errText);
+              setIsListening(false);
+              return;
+            }
+            const data = await response.json();
+            setTranscript(data.transcript || "");
+            setFinalTranscript(data.transcript || "");
+            setIsListening(false);
+          } catch (err: any) {
+            setError("STT error: " + (err?.message || "Unknown error"));
+            setIsListening(false);
+          }
+        };
+
+        recorder.onerror = (e) => {
+          setError("Recording error");
+          setIsListening(false);
+        };
+
+        recorder.start();
+      }).catch(err => {
+        setError("Could not access microphone: " + (err?.message || "Unknown error"));
+        setIsListening(false);
+      });
+      return;
+    }
+
+    // Browser STT
     if (isListening || recognitionRef.current) {
-      console.log('[STT] Already listening, not starting again.');
       return;
     }
     if (!('webkitSpeechRecognition' in window)) {
@@ -160,37 +236,31 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       return;
     }
 
-    // Clean up any previous instance
     cleanupRecognition();
 
-    // Create new recognition instance
     const rec = new SpeechRecognitionImpl();
     recognitionRef.current = rec;
     rec.lang = options.language || 'en-US';
-    rec.continuous = false; // iOS: continuous mode is buggy
-    rec.interimResults = true; // Always stream interim results
+    rec.continuous = false;
+    rec.interimResults = true;
     rec.maxAlternatives = 1;
 
     rec.onstart = () => {
-      console.log('[STT] onstart');
       setIsListening(true);
       setError(null);
       setTranscript('');
       setFinalTranscript('');
     };
     rec.onend = async () => {
-      console.log('[STT] onend');
       setIsListening(false);
       clearRecognitionHandlers(rec);
       recognitionRef.current = null;
       await forceReleaseMicMobile();
     };
     rec.onspeechend = () => {
-      console.log('[STT] onspeechend');
       rec.stop();
     };
     rec.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.log('[STT] onerror', event.error);
       setError(event.error);
       setIsListening(false);
       clearRecognitionHandlers(rec);
@@ -212,7 +282,6 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     };
 
     try {
-      console.log('[STT] rec.start()');
       rec.start();
     } catch (err) {
       setError('Error starting recognition');
@@ -220,13 +289,19 @@ export const useSTT = (defaultOptions?: STTOptions) => {
       clearRecognitionHandlers(rec);
       recognitionRef.current = null;
     }
-  }, [options.language, cleanupRecognition, isListening]);
+  }, [options.language, options.useOpenAI, cleanupRecognition, isListening]);
 
   // Stop listening: stop/abort recognition and cleanup
   const stopListening = useCallback(() => {
+    if (options.useOpenAI) {
+      if (mediaRecorderRef.current && typeof mediaRecorderRef.current.stop === "function") {
+        mediaRecorderRef.current.stop();
+      }
+      return;
+    }
     cleanupRecognition();
     forceReleaseMicMobile();
-  }, [cleanupRecognition]);
+  }, [options.useOpenAI, cleanupRecognition]);
 
   // Clear transcripts only
   const clearTranscripts = useCallback(() => {
@@ -238,8 +313,9 @@ export const useSTT = (defaultOptions?: STTOptions) => {
   useEffect(() => {
     return () => {
       cleanupRecognition();
+      cleanupMediaRecorder();
     };
-  }, [cleanupRecognition]);
+  }, [cleanupRecognition, cleanupMediaRecorder]);
 
   // Expose API
   return {
@@ -251,16 +327,6 @@ export const useSTT = (defaultOptions?: STTOptions) => {
     error,
     updateOptions: (newOptions: Partial<STTOptions>) => setOptions(prev => ({ ...prev, ...newOptions })),
     clearTranscripts,
-    isSupported: !!window.webkitSpeechRecognition
+    isSupported: !!window.webkitSpeechRecognition || !!window.MediaRecorder
   };
 };
-
-/**
- * --- Explanation of Key Steps ---
- * 
- * 1. A new recognition instance is created for each start, avoiding stale or cleaned-up instances.
- * 2. All event handlers are cleaned up after use to prevent leaks.
- * 3. After recognition ends, the mic is force-released on mobile by requesting and stopping a new stream.
- * 4. Cleanup is synchronous and robust, and always runs on unmount.
- * 5. State is reset on each start and after recognition ends.
- */

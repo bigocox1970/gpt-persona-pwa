@@ -1,88 +1,17 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { usePersona } from "../../contexts/PersonaContext";
 import { useNavigate } from "react-router-dom";
 import { Mic, MicOff, Volume2, SendHorizontal } from "lucide-react";
-
-// Minimal browser TTS hook
-function useBrowserTTS() {
-  const [speaking, setSpeaking] = useState(false);
-
-  const speak = useCallback((text: string, options?: { rate?: number; pitch?: number; voice?: SpeechSynthesisVoice }) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utter = new window.SpeechSynthesisUtterance(text);
-    if (options?.rate) utter.rate = options.rate;
-    if (options?.pitch) utter.pitch = options.pitch;
-    if (options?.voice) utter.voice = options.voice;
-    utter.onstart = () => setSpeaking(true);
-    utter.onend = () => setSpeaking(false);
-    utter.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utter);
-  }, []);
-
-  const stop = useCallback(() => {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    setSpeaking(false);
-  }, []);
-
-  return { speak, stop, speaking };
-}
-
-// Minimal browser STT hook
-function useBrowserSTT(language: string = "en-GB") {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [finalTranscript, setFinalTranscript] = useState("");
-  const recognitionRef = useRef<any>(null);
-
-  const startListening = useCallback(() => {
-    if (!("webkitSpeechRecognition" in window)) return;
-    const Recognition = (window as any).webkitSpeechRecognition;
-    const rec = new Recognition();
-    recognitionRef.current = rec;
-    rec.lang = language;
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.onstart = () => setIsListening(true);
-    rec.onend = () => setIsListening(false);
-    rec.onerror = () => setIsListening(false);
-    rec.onresult = (event: any) => {
-      let interim = "";
-      let final = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcriptPiece = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          final += transcriptPiece;
-        } else {
-          interim += transcriptPiece;
-        }
-      }
-      setTranscript(interim);
-      if (final) setFinalTranscript(final.trim());
-    };
-    rec.start();
-  }, [language]);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-    setIsListening(false);
-  }, []);
-
-  useEffect(() => {
-    return () => stopListening();
-    // eslint-disable-next-line
-  }, []);
-
-  return { isListening, transcript, finalTranscript, startListening, stopListening };
-}
+import { useTTS } from "../../hooks/useTTS";
+import { useSTT } from "../../hooks/useSTT";
+import { useAuth } from "../../contexts/AuthContext";
 
 const ClassicChatInterface: React.FC = () => {
   const { selectedPersona } = usePersona();
   const navigate = useNavigate();
-  console.log("[ClassicChat] selectedPersona:", selectedPersona);
+  const { getUserSettings } = useAuth();
+  const userSettings = getUserSettings();
+  const useOpenAI = !!userSettings?.tts?.openaiTTS;
 
   useEffect(() => {
     if (!selectedPersona) {
@@ -91,9 +20,12 @@ const ClassicChatInterface: React.FC = () => {
   }, [selectedPersona, navigate]);
   const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
   const [input, setInput] = useState("");
-  const [language, setLanguage] = useState("en-GB");
-  const { speak, stop, speaking } = useBrowserTTS();
-  const { isListening, transcript, finalTranscript, startListening, stopListening } = useBrowserSTT(language);
+  const [language] = useState("en-GB");
+
+  // Use main TTS/STT hooks
+  const { speak, stop, speaking } = useTTS();
+  const { isListening, transcript, finalTranscript, startListening, stopListening } = useSTT({ language, useOpenAI });
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Stream interim transcript to input, but keep final when available
@@ -107,34 +39,66 @@ const ClassicChatInterface: React.FC = () => {
     if (finalTranscript) setInput(finalTranscript);
   }, [finalTranscript]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     setMessages((msgs) => [...msgs, { sender: "user", text: input }]);
-    // Simulate streaming AI response
-    const aiText = "AI: " + input;
-    setTimeout(() => {
-      let i = 0;
-      const words = aiText.split(" ");
-      setMessages((msgs) => [...msgs, { sender: "ai", text: "" }]);
-      function stream() {
-        setMessages((msgs) => {
-          const newMsgs = [...msgs];
-          newMsgs[newMsgs.length - 1] = {
-            sender: "ai",
-            text: words.slice(0, i + 1).join(" "),
-          };
-          return newMsgs;
-        });
-        i++;
-        if (i < words.length) {
-          setTimeout(stream, 80);
-        } else {
-          speak(aiText);
-        }
-      }
-      stream();
-    }, 500);
     setInput("");
+
+    // Add placeholder for AI response
+    setMessages((msgs) => [...msgs, { sender: "ai", text: "..." }]);
+
+    try {
+      const response = await fetch("/.netlify/functions/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "user", content: input }
+          ]
+        })
+      });
+      if (!response.ok) {
+        throw new Error("Failed to get LLM response");
+      }
+      const data = await response.json();
+      // Extract LLM reply from OpenAI response format
+      const aiText =
+        (data.choices &&
+          data.choices[0] &&
+          data.choices[0].message &&
+          data.choices[0].message.content) ||
+        data.reply ||
+        data.text ||
+        data.message ||
+        "AI response unavailable.";
+
+      // Update the last AI message with the real response
+      setMessages((msgs) => {
+        const newMsgs = [...msgs];
+        // Find the last AI message (the placeholder)
+        const lastIndex = newMsgs.findIndex((msg, idx) =>
+          msg.sender === "ai" && idx === newMsgs.length - 1
+        );
+        if (lastIndex !== -1) {
+          newMsgs[lastIndex] = { sender: "ai", text: aiText };
+        }
+        return newMsgs;
+      });
+
+      speak(aiText);
+    } catch (err) {
+      setMessages((msgs) => {
+        const newMsgs = [...msgs];
+        // Find the last AI message (the placeholder)
+        const lastIndex = newMsgs.findIndex((msg, idx) =>
+          msg.sender === "ai" && idx === newMsgs.length - 1
+        );
+        if (lastIndex !== -1) {
+          newMsgs[lastIndex] = { sender: "ai", text: "Error: Could not get LLM response." };
+        }
+        return newMsgs;
+      });
+    }
   };
 
   return (
@@ -161,7 +125,7 @@ const ClassicChatInterface: React.FC = () => {
           height: "100%",
         }}
       ></div>
-      <div className="flex-1 relative z-10">
+      <div className="flex-1 relative z-10 overflow-y-auto">
         {messages.length === 0 && selectedPersona ? (
           <div className="flex flex-col items-center justify-center h-full w-full">
             <div className="text-xl font-bold mb-2 text-black text-center">
@@ -175,7 +139,13 @@ const ClassicChatInterface: React.FC = () => {
           <div className="w-full p-4">
             {messages.map((msg, i) => (
               <div key={i} className={`mb-2 ${msg.sender === "user" ? "text-right" : "text-left"}`}>
-                <span className={`inline-block px-3 py-2 rounded-lg ${msg.sender === "user" ? "bg-blue-100" : "bg-gray-200"}`}>
+                <span
+                  className={`inline-block px-3 py-2 rounded-lg ${
+                    msg.sender === "user"
+                      ? "bg-[var(--primary-color)] text-white"
+                      : "bg-[var(--secondary-color)] text-[var(--text-primary)]"
+                  }`}
+                >
                   {msg.text}
                 </span>
               </div>
@@ -183,7 +153,7 @@ const ClassicChatInterface: React.FC = () => {
           </div>
         )}
       </div>
-      <div className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] border-t border-[var(--secondary-color)] p-4 relative z-10">
+      <div className="bg-[var(--background-primary)] dark:bg-[var(--background-primary)] border-t border-[var(--secondary-color)] p-4 z-20">
         <div className="flex items-center">
           <button
             className={`p-2 rounded-full mr-2 ${

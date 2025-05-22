@@ -42,8 +42,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
         showPersona={isChatPage && !!selectedPersona}
         persona={isChatPage ? selectedPersona : undefined}
         title={!isChatPage ? getHeaderTitle() : undefined}
-        onHistoryClick={location.pathname === '/chat' ? () => setShowHistoryOverlay(true) : undefined}
-        onToolsClick={location.pathname === '/chat' ? () => setShowToolsOverlay(true) : undefined}
+        onHistoryClick={isChatPage ? () => setShowHistoryOverlay(true) : undefined}
+        onToolsClick={isChatPage ? () => setShowToolsOverlay(true) : undefined}
       />
       {isChatPage && showToolsOverlay && (
         <ToolsOverlay
