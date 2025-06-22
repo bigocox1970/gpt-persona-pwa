@@ -63,6 +63,14 @@ const SettingsManager: React.FC = () => {
   const [openaiVoice, setOpenaiVoice] = useState<"nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy">("nova");
   const [openaiModel, setOpenaiModel] = useState<"tts-1" | "tts-1-hd">("tts-1");
   
+  // New initial states for TTS and STT
+  const [initialSelectedVoice, setInitialSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [initialSpeechRate, setInitialSpeechRate] = useState<number>(1);
+  const [initialSpeechPitch, setInitialSpeechPitch] = useState<number>(1);
+  const [initialOpenaiTTS, setInitialOpenaiTTS] = useState<boolean>(false);
+  const [initialOpenaiVoice, setInitialOpenaiVoice] = useState<"nova" | "shimmer" | "echo" | "onyx" | "fable" | "alloy">("nova");
+  const [initialOpenaiModel, setInitialOpenaiModel] = useState<"tts-1" | "tts-1-hd">("tts-1");
+  
   // State for STT
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
   const [initialLanguage, setInitialLanguage] = useState<string>('en-US');
@@ -103,20 +111,29 @@ const SettingsManager: React.FC = () => {
         console.error('Failed to parse STT settings:', e);
       }
     }
-  }, [user]);
+    
+    // Reset unsaved changes flag when component loads
+    setHasUnsavedChanges(false);
+  }, [user, isDarkMode]);
   
   // Initialize selectedVoice from options.voice when component loads
+  /*
   useEffect(() => {
     if (options.voice) {
       console.log('Initializing selectedVoice from options.voice:', options.voice.name);
       setSelectedVoice(options.voice);
     }
   }, [options.voice]);
+  */
 
   // Load user settings from Supabase when voices are available
   useEffect(() => {
     if (voices.length > 0) {
       const userSettings = getUserSettings();
+      
+      // Reset hasUnsavedChanges when loading settings
+      setHasUnsavedChanges(false);
+      
       if (userSettings) {
         console.log('Loading settings from Supabase:', userSettings);
         
@@ -138,6 +155,7 @@ const SettingsManager: React.FC = () => {
             if (bestMatch) {
               console.log('Found matching voice:', bestMatch.name);
               setSelectedVoice(bestMatch);
+              setInitialSelectedVoice(bestMatch);
               updateOptions({ voice: bestMatch });
             } else {
               console.error('Could not find matching voice');
@@ -146,27 +164,32 @@ const SettingsManager: React.FC = () => {
           
           if (typeof userSettings.tts.rate === 'number') {
             setSpeechRate(userSettings.tts.rate);
+            setInitialSpeechRate(userSettings.tts.rate);
             updateOptions({ rate: userSettings.tts.rate });
           }
           
           if (typeof userSettings.tts.pitch === 'number') {
             setSpeechPitch(userSettings.tts.pitch);
+            setInitialSpeechPitch(userSettings.tts.pitch);
             updateOptions({ pitch: userSettings.tts.pitch });
           }
           
           // Load OpenAI TTS settings
           if (typeof userSettings.tts.openaiTTS === 'boolean') {
             setOpenaiTTS(userSettings.tts.openaiTTS);
+            setInitialOpenaiTTS(userSettings.tts.openaiTTS);
             updateOptions({ useOpenAI: userSettings.tts.openaiTTS });
           }
           
           if (userSettings.tts.openaiVoice) {
             setOpenaiVoice(userSettings.tts.openaiVoice);
+            setInitialOpenaiVoice(userSettings.tts.openaiVoice);
             updateOptions({ openaiVoice: userSettings.tts.openaiVoice });
           }
           
           if (userSettings.tts.openaiModel) {
             setOpenaiModel(userSettings.tts.openaiModel);
+            setInitialOpenaiModel(userSettings.tts.openaiModel);
             updateOptions({ openaiModel: userSettings.tts.openaiModel });
           }
         }
@@ -185,60 +208,55 @@ const SettingsManager: React.FC = () => {
   
   // Check for unsaved changes
   useEffect(() => {
-    // Check if voice has changed
+    // More precise voice comparison to avoid false positives
     let voiceChanged = false;
-    
-    // Debug voice state
-    console.log('[CHANGE DETECTION] Voice state:', {
-      selectedVoice: selectedVoice ? {
-        name: selectedVoice.name,
-        lang: selectedVoice.lang,
-        voiceURI: selectedVoice.voiceURI
-      } : null,
-      optionsVoice: options.voice ? {
-        name: options.voice.name,
-        lang: options.voice.lang,
-        voiceURI: options.voice.voiceURI
-      } : null
-    });
-    
-    if (selectedVoice && !options.voice) {
-      // Voice selected for the first time
-      console.log('[CHANGE DETECTION] Voice selected for the first time');
-      voiceChanged = true;
-    } else if (!selectedVoice && options.voice) {
-      // Voice removed
-      console.log('[CHANGE DETECTION] Voice removed');
-      voiceChanged = true;
-    } else if (selectedVoice && options.voice && selectedVoice.voiceURI !== options.voice.voiceURI) {
-      // Different voice selected
-      console.log('[CHANGE DETECTION] Different voice selected');
+    if (selectedVoice && initialSelectedVoice) {
+      voiceChanged = selectedVoice.voiceURI !== initialSelectedVoice.voiceURI;
+    } else if (selectedVoice || initialSelectedVoice) {
+      // One is null and the other isn't
       voiceChanged = true;
     }
+    // Otherwise both are null, so no change
+    
+    // Compare numbers with a small tolerance to avoid floating point comparison issues
+    const isRateChanged = Math.abs(speechRate - initialSpeechRate) > 0.001;
+    const isPitchChanged = Math.abs(speechPitch - initialSpeechPitch) > 0.001;
+    
+    // Check each value individually for better debugging
+    const usernameChanged = username !== initialUsername;
+    const paletteChanged = activePalette !== initialPalette;
+    const darkModeChanged = isDarkMode !== initialDarkMode;
+    const languageChanged = selectedLanguage !== initialLanguage;
+    const openaiTTSChanged = openaiTTS !== initialOpenaiTTS;
+    const openaiVoiceChanged = openaiVoice !== initialOpenaiVoice;
+    const openaiModelChanged = openaiModel !== initialOpenaiModel;
     
     const hasChanges = 
-      username !== initialUsername ||
-      activePalette !== initialPalette ||
-      isDarkMode !== initialDarkMode ||
-      speechRate !== options.rate ||
-      speechPitch !== options.pitch ||
-      selectedLanguage !== initialLanguage ||
+      usernameChanged ||
+      paletteChanged ||
+      darkModeChanged ||
+      isRateChanged ||
+      isPitchChanged ||
+      languageChanged ||
       voiceChanged ||
-      openaiTTS !== options.useOpenAI ||
-      openaiVoice !== options.openaiVoice ||
-      openaiModel !== options.openaiModel;
+      openaiTTSChanged ||
+      openaiVoiceChanged ||
+      openaiModelChanged;
     
     console.log('Change detection:', { 
-      voiceChanged, 
-      selectedVoice: selectedVoice?.name, 
-      optionsVoice: options.voice?.name,
-      activePalette,
-      initialPalette,
-      isDarkMode,
-      initialDarkMode,
-      selectedLanguage,
-      initialLanguage,
-      hasChanges 
+      hasChanges,
+      usernameChanged, username, initialUsername,
+      paletteChanged, activePalette, initialPalette,
+      darkModeChanged, isDarkMode, initialDarkMode,
+      isRateChanged, speechRate, initialSpeechRate,
+      isPitchChanged, speechPitch, initialSpeechPitch,
+      languageChanged, selectedLanguage, initialLanguage,
+      voiceChanged,
+      selectedVoiceURI: selectedVoice?.voiceURI,
+      initialSelectedVoiceURI: initialSelectedVoice?.voiceURI,
+      openaiTTSChanged, openaiTTS, initialOpenaiTTS,
+      openaiVoiceChanged, openaiVoice, initialOpenaiVoice,
+      openaiModelChanged, openaiModel, initialOpenaiModel
     });
     
     setHasUnsavedChanges(hasChanges);
@@ -246,12 +264,13 @@ const SettingsManager: React.FC = () => {
     username, initialUsername,
     activePalette, initialPalette,
     isDarkMode, initialDarkMode,
-    speechRate, speechPitch, options.rate, options.pitch,
+    speechRate, initialSpeechRate,
+    speechPitch, initialSpeechPitch,
     selectedLanguage, initialLanguage,
-    selectedVoice, options.voice,
-    openaiTTS, options.useOpenAI,
-    openaiVoice, options.openaiVoice,
-    openaiModel, options.openaiModel
+    selectedVoice, initialSelectedVoice,
+    openaiTTS, initialOpenaiTTS,
+    openaiVoice, initialOpenaiVoice,
+    openaiModel, initialOpenaiModel
   ]);
   
   // Handle beforeunload event
@@ -288,12 +307,35 @@ const SettingsManager: React.FC = () => {
   // Handle logout
   const handleLogout = useCallback(() => {
     if (hasUnsavedChanges) {
-      setPendingNavigation('/login');
+      setPendingNavigation('logout'); // Set a specific action for logout
       setShowConfirmDialog(true);
     } else {
-      logout();
+      logout(); // Logout directly if no changes
     }
   }, [hasUnsavedChanges, logout]);
+
+  // This function is for the dialog that asks about saving before navigating away
+  const handleGeneralConfirm = () => {
+    saveSettings(); // Save first
+    confirmNavigation(); // Then navigate
+  };
+
+  const handleGeneralDiscard = () => {
+    confirmNavigation(); // Just navigate, discarding changes
+  };
+
+  const handleGeneralCancel = () => {
+    cancelNavigation(); // Don't navigate, close dialog
+  };
+
+  // Specific handler for the logout confirmation dialog
+  const handleLogoutConfirm = () => {
+    // Force logout without saving changes
+    setHasUnsavedChanges(false); // Prevent beforeunload warning
+    logout();
+    setShowConfirmDialog(false);
+    setPendingNavigation(null);
+  };
   
   // Handle password change
   const handlePasswordChange = useCallback(async (currentPassword: string, newPassword: string) => {
@@ -302,91 +344,65 @@ const SettingsManager: React.FC = () => {
   
   // Save settings
   const saveSettings = useCallback(async () => {
-    // First save to localStorage as fallback
-    localStorage.setItem('activePalette', String(activePalette));
-    localStorage.setItem('user_display_name', username);
-    
-    // Save TTS settings to localStorage and update options
-    console.log('Saving voice settings:', {
-      voice: selectedVoice?.name || 'None',
-      rate: speechRate,
-      pitch: speechPitch
-    });
-    
-    // Force a stop of any current speech before updating options
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    
-    // Update TTS options with a slight delay to ensure clean state
-    setTimeout(() => {
+    console.log('Saving settings...');
+    const settingsToSave = {
+      profile: {
+        name: username,
+      },
+      theme: {
+        activePalette: activePalette,
+        isDarkMode: isDarkMode,
+      },
+      tts: {
+        voiceName: selectedVoice?.name,
+        voiceLanguage: selectedVoice?.lang,
+        rate: speechRate,
+        pitch: speechPitch,
+        openaiTTS: openaiTTS,
+        openaiVoice: openaiVoice,
+        openaiModel: openaiModel,
+      },
+      stt: {
+        language: selectedLanguage,
+      },
+    };
+
+    console.log('Settings to save:', settingsToSave);
+
+    try {
+      await saveUserSettings(settingsToSave);
+      
+      // Update initial states to reflect the new saved state
+      setInitialUsername(username);
+      setInitialPalette(activePalette);
+      setInitialDarkMode(isDarkMode);
+      setInitialLanguage(selectedLanguage);
+      setInitialSelectedVoice(selectedVoice);
+      setInitialSpeechRate(speechRate);
+      setInitialSpeechPitch(speechPitch);
+      setInitialOpenaiTTS(openaiTTS);
+      setInitialOpenaiVoice(openaiVoice);
+      setInitialOpenaiModel(openaiModel);
+  
+      // Update options in context/hooks to match saved state
       updateOptions({
         voice: selectedVoice,
         rate: speechRate,
         pitch: speechPitch,
         useOpenAI: openaiTTS,
         openaiVoice: openaiVoice,
-        openaiModel: openaiModel
+        openaiModel: openaiModel,
       });
-      
-      console.log('TTS options updated with:', {
-        voice: selectedVoice?.name || 'None',
-        useOpenAI: openaiTTS,
-        openaiVoice: openaiVoice
-      });
-    }, 100);
-    
-    // Save STT settings to localStorage
-    if (updateSTTOptions) {
-      updateSTTOptions({ language: selectedLanguage });
-      localStorage.setItem('stt_settings', JSON.stringify({ language: selectedLanguage }));
-    }
-    
-    // Save all settings to Supabase
-    try {
-      // Create settings object with voice preferences instead of exact URI
-      const settings = {
-        theme: {
-          activePalette: activePalette,
-          isDarkMode: isDarkMode === undefined ? false : isDarkMode,
-          customColors: Object.keys(customColors).length > 0 ? customColors : undefined
-        },
-        tts: {
-          voiceLanguage: selectedVoice?.lang,
-          voiceName: selectedVoice?.name,
-          voiceGender: selectedVoice?.name?.toLowerCase().includes('female') ? 'female' : 'male',
-          rate: speechRate,
-          pitch: speechPitch,
-          openaiTTS: openaiTTS,
-          openaiVoice: openaiVoice,
-          openaiModel: openaiModel
-        },
-        stt: {
-          language: selectedLanguage
-        }
-      };
-      
-      // Save settings to Supabase
-      await saveUserSettings(settings);
-      
-      // Update user profile if username changed
-      if (username !== initialUsername) {
-        await updateUserProfile(username);
+  
+      if (updateSTTOptions) {
+        updateSTTOptions({ language: selectedLanguage });
       }
-      
-      // Update initial values to reflect saved state
-      setInitialUsername(username);
-      setInitialPalette(activePalette);
-      setInitialDarkMode(isDarkMode);
-      setInitialLanguage(selectedLanguage);
-      
-      // Clear unsaved changes flag
+  
       setHasUnsavedChanges(false);
-      
-      console.log('Settings saved successfully');
+      console.log('Settings saved and initial states updated.');
     } catch (error) {
-      console.error('Failed to save settings to database:', error);
-      alert('There was an error saving your settings to the cloud. Your settings are saved locally but may not sync across devices.');
+      console.error('Error saving settings:', error);
+      // Keep hasUnsavedChanges true if save failed
     }
   }, [
     activePalette, username, selectedVoice, 
@@ -395,6 +411,36 @@ const SettingsManager: React.FC = () => {
     saveUserSettings, updateUserProfile, isDarkMode,
     openaiTTS, openaiVoice, openaiModel, customColors
   ]);
+  
+  // Force synchronize all initial values with current values
+  const syncInitialValues = useCallback(() => {
+    setInitialUsername(username);
+    setInitialPalette(activePalette);
+    setInitialDarkMode(isDarkMode);
+    setInitialSelectedVoice(selectedVoice);
+    setInitialSpeechRate(speechRate);
+    setInitialSpeechPitch(speechPitch);
+    setInitialLanguage(selectedLanguage);
+    setInitialOpenaiTTS(openaiTTS);
+    setInitialOpenaiVoice(openaiVoice);
+    setInitialOpenaiModel(openaiModel);
+    setHasUnsavedChanges(false);
+    console.log('Forced synchronization of all initial values with current values');
+  }, [
+    username, activePalette, isDarkMode, selectedVoice, 
+    speechRate, speechPitch, selectedLanguage,
+    openaiTTS, openaiVoice, openaiModel
+  ]);
+  
+  // Add effect to force sync values when component mounts
+  useEffect(() => {
+    // Small delay to ensure all values are loaded
+    const timer = setTimeout(() => {
+      syncInitialValues();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [syncInitialValues]);
   
   // Handle component changes
   const handleUsernameChange = useCallback((name: string) => {
@@ -513,31 +559,27 @@ const SettingsManager: React.FC = () => {
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-bold mb-4">Unsaved Changes</h3>
-            <p className="mb-6">You have unsaved changes. Do you want to save your settings before leaving?</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  saveSettings();
-                  confirmNavigation();
-                }}
-                className="flex-1 btn btn-primary"
-              >
-                Yes, Save
-              </button>
-              <button
-                onClick={confirmNavigation}
-                className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              >
-                No, Discard
-              </button>
-              <button
-                onClick={cancelNavigation}
-                className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              >
-                Cancel
-              </button>
-            </div>
+            <h3 className="text-lg font-bold mb-4">
+              {pendingNavigation === 'logout' ? 'Log Out' : 'Unsaved Changes'}
+            </h3>
+            <p className="mb-6">
+              {pendingNavigation === 'logout' 
+                ? 'You have unsaved changes. Are you sure you want to discard them and log out?'
+                : 'You have unsaved changes. Do you want to save your settings before leaving?'
+              }
+            </p>
+            {pendingNavigation === 'logout' ? (
+              <div className="flex space-x-3">
+                <button onClick={handleLogoutConfirm} className="flex-1 btn btn-danger">Discard & Logout</button>
+                <button onClick={cancelNavigation} className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex space-x-3">
+                <button onClick={handleGeneralConfirm} className="flex-1 btn btn-primary">Yes, Save</button>
+                <button onClick={handleGeneralDiscard} className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">No, Discard</button>
+                <button onClick={handleGeneralCancel} className="flex-1 btn bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
+              </div>
+            )}
           </div>
         </div>
       )}
