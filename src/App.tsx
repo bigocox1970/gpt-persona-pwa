@@ -5,6 +5,7 @@ import Chat from './pages/Chat';
 import PersonaSelection from './pages/PersonaSelection';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PersonaProvider } from './contexts/PersonaContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -65,9 +66,10 @@ function AppRoutes() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
+        <Route path="/" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/personas" />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/personas" /> : <Login />} />
         <Route 
-          path="/" 
+          path="/personas" 
           element={
             <ProtectedRoute>
               <Layout onToolsClick={handleToolsClick}>
