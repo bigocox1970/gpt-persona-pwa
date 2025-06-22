@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Brain } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
@@ -46,9 +45,7 @@ const Login: React.FC = () => {
         <div className="bg-[var(--background-secondary)] dark:bg-[var(--background-secondary)] rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8">
             <div className="flex justify-center mb-6">
-              <div className="bg-[var(--primary-color)] bg-opacity-10 p-3 rounded-full">
-                <Brain className="h-10 w-10 text-[var(--primary-color)]" />
-              </div>
+              <img src="/icons/gptpasonalogo1-sq-192-192.png" alt="Logo" className="h-20 w-20" />
             </div>
             
             <h2 className="text-2xl font-bold text-center mb-4 text-[var(--text-primary)] dark:text-[var(--text-primary)]">
