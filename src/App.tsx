@@ -18,13 +18,16 @@ import ChatHistory from './pages/ChatHistory';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location }, replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
 
-  return <>{children}</>;
+  return isAuthenticated ? <>{children}</> : null;
 };
 
 function AppRoutes() {
