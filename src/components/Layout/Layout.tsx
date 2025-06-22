@@ -21,8 +21,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
   };
 
   const getHeaderTitle = () => {
-    if (location.pathname === '/settings') return 'Settings';
-    if (location.pathname === '/') return 'Choose Your Persona';
+    const path = location.pathname;
+    if (path === '/settings') return 'Settings';
+    if (path === '/personas' || path === '/') return 'Select a Persona';
+    if (path === '/chat') return 'Chat';
     return '';
   };
 
@@ -43,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onToolsClick }) => {
       <Header
         showPersona={isChatPage && !!selectedPersona}
         persona={isChatPage ? selectedPersona : undefined}
-        title={!isChatPage ? getHeaderTitle() : undefined}
+        title={getHeaderTitle()}
         onHistoryClick={isChatPage ? handleHistoryClick : undefined}
       />
       {showHistory && <ChatHistory onClose={handleHistoryClose} />}
