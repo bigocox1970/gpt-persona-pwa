@@ -182,7 +182,8 @@ const LandingPage: React.FC = () => {
       {/* Footer */}
       <footer className="bg-[var(--background-secondary)]/50 mt-20 border-t border-[var(--primary-color)]/10">
         <div className="container mx-auto px-6 py-6 text-center text-[var(--text-primary)]/80">
-          <p>&copy; {new Date().getFullYear()} GPT Persona. All Rights Reserved.</p>
+          <p className="mb-2">&copy; {new Date().getFullYear()} GPT Persona. All Rights Reserved.</p>
+          <p>App design by <a href="https://diamondinternet.co.uk/" target="_blank" rel="noopener noreferrer" className="text-[var(--primary-color)] hover:underline">Diamond Internet</a></p>
         </div>
       </footer>
       {showBackToTop && (
