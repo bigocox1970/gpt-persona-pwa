@@ -17,11 +17,24 @@ import ToolsPage from './tools/ToolsPage';
 import ChatHistory from './pages/ChatHistory';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  useEffect(() => {
+    // Wait for the auth state to be determined
+    if (isLoading) {
+      return;
+    }
+    // If not authenticated, redirect to login page
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location }, replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate, location]);
+
+  // While loading, or if not authenticated (and redirecting), don't render children
+  if (isLoading || !isAuthenticated) {
+    return null; // or a loading spinner
   }
 
   return <>{children}</>;

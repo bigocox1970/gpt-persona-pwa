@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 interface User {
@@ -60,6 +61,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check current auth status
@@ -151,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         throw new Error(error.message);
       }
+      navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
       throw error;
@@ -248,35 +251,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      console.error('Settings update error:', error);
+      console.error('Error saving user settings:', error);
       throw error;
     }
   };
   
   const getUserSettings = (): UserSettings | undefined => {
-    if (!user) return undefined;
-    
-    // If we already have settings in the user object, return them
-    if (user.settings) {
-      return user.settings;
-    }
-    
-    // Otherwise return undefined
-    return undefined;
+    return user?.settings;
   };
 
-  const value = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    login,
-    logout,
-    register,
-    updatePassword,
-    updateUserProfile,
-    saveUserSettings,
-    getUserSettings,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        logout,
+        register,
+        updatePassword,
+        updateUserProfile,
+        saveUserSettings,
+        getUserSettings,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
