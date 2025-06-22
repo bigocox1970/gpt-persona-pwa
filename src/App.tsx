@@ -66,8 +66,10 @@ function AppRoutes() {
   return (
     <>
       <Routes>
-        <Route path="/" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/personas" />} />
         <Route path="/login" element={isAuthenticated ? <Navigate to="/personas" /> : <Login />} />
+        
+        <Route path="/" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/personas" />} />
+
         <Route 
           path="/personas" 
           element={
