@@ -41,7 +41,7 @@ const findBestMatchingVoice = (
 const SettingsManager: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, updatePassword, updateUserProfile, saveUserSettings, getUserSettings } = useAuth();
-  const { voices, options, updateOptions, speak } = useTTS();
+  const { voices, options, updateOptions } = useTTS();
   const { updateOptions: updateSTTOptions } = useSTT();
   const { isDarkMode } = useTheme();
   
@@ -274,10 +274,15 @@ const SettingsManager: React.FC = () => {
   // Confirm navigation
   const confirmNavigation = useCallback(() => {
     if (pendingNavigation) {
+      if (pendingNavigation === '/login') {
+        logout();
+      } else {
+        navigate(pendingNavigation);
+      }
       setShowConfirmDialog(false);
-      navigate(pendingNavigation);
+      setPendingNavigation(null);
     }
-  }, [pendingNavigation, navigate]);
+  }, [pendingNavigation, navigate, logout]);
   
   // Cancel navigation
   const cancelNavigation = useCallback(() => {
